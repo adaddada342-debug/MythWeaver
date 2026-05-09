@@ -1,0 +1,37 @@
+{
+  "name": "Ashfall Frontier",
+  "summary": "Volcanic frontier survival with ruins, dungeons, caves, and performance foundation.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    {
+      "slug": "sodium",
+      "role": "foundation",
+      "reason_selected": "Renderer optimization"
+    },
+    {
+      "slug": "lithium",
+      "role": "foundation",
+      "reason_selected": "Game logic optimization"
+    },
+    {
+      "slug": "ferrite-core",
+      "role": "foundation",
+      "reason_selected": "Memory optimization"
+    },
+    {
+      "slug": "iris",
+      "role": "shader_support",
+      "reason_selected": "Shader support"
+    },
+    {
+      "slug": "when-dungeons-arise",
+      "role": "theme",
+      "reason_selected": "Large exploration structures and dungeons"
+    }
+  ],
+  "shader_recommendations": [
+    "Use externally verified shader packs only; MythWeaver does not bundle unverified shader files."
+  ],
+  "notes": "Cursor/Codex should curate this list with MythWeaver search/inspect/compare, then verify and build it."
+}

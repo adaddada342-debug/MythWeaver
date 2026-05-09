@@ -1,0 +1,57 @@
+{
+  "name": "Afterglow Valley",
+  "summary": "A polished Fabric 1.20.1 cozy exploration survival pack focused on scenic terrain, village restoration, cottage building, farming, cooking, wildlife, ambience, comfortable travel, storage progression, and light mystery without horror, tech bloat, or combat pressure.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    {"slug": "sodium", "role": "foundation", "reason_selected": "performance_foundation renderer performance for scenic terrain and decorated settlements"},
+    {"slug": "lithium", "role": "foundation", "reason_selected": "performance_foundation broad gameplay and server optimization"},
+    {"slug": "ferrite-core", "role": "foundation", "reason_selected": "performance_foundation memory reduction for long cozy survival worlds"},
+    {"slug": "modernfix", "role": "foundation", "reason_selected": "performance_foundation startup, memory, and stability fixes"},
+    {"slug": "immediatelyfast", "role": "foundation", "reason_selected": "performance_foundation client rendering speedups"},
+    {"slug": "entityculling", "role": "foundation", "reason_selected": "performance_foundation reduce hidden entity rendering cost in villages and decorated homes"},
+    {"slug": "indium", "role": "foundation", "reason_selected": "performance_foundation Sodium compatibility for Fabric rendering API building and decor mods"},
+
+    {"slug": "modmenu", "role": "utility", "reason_selected": "client_qol mod configuration discovery"},
+    {"slug": "jade", "role": "utility", "reason_selected": "client_qol readable block, crop, storage, and entity information"},
+    {"slug": "emi", "role": "utility", "reason_selected": "inventory_management recipe and item discovery across cooking, storage, and decoration"},
+    {"slug": "appleskin", "role": "utility", "reason_selected": "client_qol food value clarity for cooking progression"},
+    {"slug": "mouse-tweaks", "role": "utility", "reason_selected": "inventory_management smoother inventory interactions without adding risky sorting systems"},
+    {"slug": "shulkerboxtooltip", "role": "utility", "reason_selected": "inventory_management container visibility while traveling and building"},
+
+    {"slug": "terralith", "role": "theme", "reason_selected": "beautiful_worldgen scenic vanilla-style terrain without stacking multiple full biome overhauls"},
+    {"slug": "ct-overhaul-village", "role": "theme", "reason_selected": "villages improved settlements that feel worth visiting, restoring, and connecting with roads"},
+    {"slug": "explorify", "role": "theme", "reason_selected": "light_structures small discoveries, ruins, and landmarks without boss-heavy adventure bloat"},
+    {"slug": "repurposed-structures-fabric", "role": "theme", "reason_selected": "light_structures vanilla-style structure variety for relaxed journeys"},
+    {"slug": "naturalist", "role": "theme", "reason_selected": "animals wildlife that makes forests, rivers, and valleys feel alive"},
+
+    {"slug": "visuality", "role": "theme", "reason_selected": "visual_polish gentle particles and ambient detail"},
+    {"slug": "ambientsounds", "role": "theme", "reason_selected": "ambience relaxing biome ambience and immersive soundscape"},
+    {"slug": "sound-physics-remastered", "role": "theme", "reason_selected": "soundscape spatial audio for caves, cottages, forests, and villages"},
+    {"slug": "presence-footsteps", "role": "theme", "reason_selected": "soundscape grounded travel and building ambience"},
+
+    {"slug": "chipped", "role": "theme", "reason_selected": "cozy_building_blocks large palette for cottages, workshops, barns, docks, and village streets"},
+    {"slug": "rechiseled", "role": "theme", "reason_selected": "cozy_building_blocks decorative variants for long-term building projects"},
+    {"slug": "supplementaries", "role": "theme", "reason_selected": "decoration functional cozy details that make homes and villages feel lived in"},
+    {"slug": "amendments", "role": "theme", "reason_selected": "decoration vanilla block improvements that complement Supplementaries"},
+    {"slug": "another-furniture", "role": "theme", "reason_selected": "furniture restrained furniture for cozy interiors"},
+    {"slug": "handcrafted", "role": "theme", "reason_selected": "furniture richer furniture for kitchens, inns, workshops, and cottages"},
+    {"slug": "macaws-bridges", "role": "theme", "reason_selected": "cozy_building_blocks bridges and paths for rivers, roads, and scenic infrastructure"},
+    {"slug": "macaws-doors", "role": "theme", "reason_selected": "cozy_building_blocks home and village exterior variety"},
+    {"slug": "macaws-windows", "role": "theme", "reason_selected": "cozy_building_blocks cozy home and workshop detailing"},
+    {"slug": "macaws-roofs", "role": "theme", "reason_selected": "cozy_building_blocks cottage, barn, and village roof shapes"},
+    {"slug": "macaws-fences-and-walls", "role": "theme", "reason_selected": "cozy_building_blocks gardens, pastures, farms, and settlement boundaries"},
+
+    {"slug": "farmers-delight-refabricated", "role": "theme", "reason_selected": "farming cooking core kitchen and homestead progression"},
+
+    {"slug": "travelersbackpack", "role": "utility", "reason_selected": "backpack/mobile storage for scenic expeditions"},
+    {"slug": "toms-storage", "role": "utility", "reason_selected": "base storage simple storage network progression without factory bloat"},
+    {"slug": "xaeros-minimap", "role": "utility", "reason_selected": "map_tools local navigation for scenic exploration and settlement planning"},
+    {"slug": "xaeros-world-map", "role": "utility", "reason_selected": "map_tools long-term world memory and route planning"},
+    {"slug": "natures-compass", "role": "utility", "reason_selected": "compass/discovery tools biome finding for beautiful build sites without quest bloat"},
+    {"slug": "waystones", "role": "utility", "reason_selected": "comfortable travel between homes, villages, and scenic outposts while preserving journey by discovery"},
+    {"slug": "comforts", "role": "utility", "reason_selected": "comfortable travel sleeping bags for long journeys without resetting spawn"}
+  ],
+  "shader_recommendations": [],
+  "notes": "Curated for cozy exploration and settlement life: no Create-style tech chain, no horror, no guns, no boss RPG path. Croptopia and Croptopia Delight were not included because the allowed source/dependency closure check could not acquire Croptopia in this environment. Inventory Profiles Next is intentionally excluded initially because it has known runtime risk in this project history; Mouse Tweaks and Shulker Box Tooltip cover low-risk inventory quality of life."
+}

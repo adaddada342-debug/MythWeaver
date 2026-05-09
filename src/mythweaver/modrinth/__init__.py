@@ -1,0 +1,2 @@
+"""Modrinth API integration."""
+

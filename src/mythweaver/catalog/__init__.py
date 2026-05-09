@@ -1,0 +1,2 @@
+"""Catalog indexing and scoring."""
+

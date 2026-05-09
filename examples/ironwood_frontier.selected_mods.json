@@ -1,0 +1,60 @@
+{
+  "name": "Ironwood Frontier",
+  "summary": "Fabric 1.20.1 cozy frontier survival and settlement: scenic terrain, villages, light ruins, wildlife, ambience, farmhouse building palettes, Farmer's Delight cooking, measured travel maps and waystones, Tom's Storage and backpacks, light Create mills and workshops—the wild slowly becomes home.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    {"slug": "sodium", "role": "foundation", "reason_selected": "performance_foundation renderer performance for scenic terrain and decorated builds"},
+    {"slug": "lithium", "role": "foundation", "reason_selected": "performance_foundation gameplay and simulation optimization"},
+    {"slug": "ferrite-core", "role": "foundation", "reason_selected": "performance_foundation memory reduction for long settlement worlds"},
+    {"slug": "modernfix", "role": "foundation", "reason_selected": "performance_foundation startup and stability fixes"},
+    {"slug": "immediatelyfast", "role": "foundation", "reason_selected": "performance_foundation client rendering speedups"},
+    {"slug": "entityculling", "role": "foundation", "reason_selected": "performance_foundation fewer off-screen draws in busy villages"},
+    {"slug": "indium", "role": "foundation", "reason_selected": "performance_foundation Sodium Fabric Rendering API compatibility for decorated blocks"},
+
+    {"slug": "modmenu", "role": "utility", "reason_selected": "client_qol mod discovery and toggles"},
+    {"slug": "jade", "role": "utility", "reason_selected": "client_qol readable block entity info for farms and machinery"},
+    {"slug": "emi", "role": "utility", "reason_selected": "inventory_qol unified recipes for cooking farms and workshop parts"},
+    {"slug": "appleskin", "role": "utility", "reason_selected": "client_qol food clarity for kitchen progression"},
+    {"slug": "mouse-tweaks", "role": "utility", "reason_selected": "inventory_qol smoother inventories for storage sorting"},
+    {"slug": "shulkerboxtooltip", "role": "utility", "reason_selected": "inventory_qol mobile container preview while surveying"},
+
+    {"slug": "terralith", "role": "theme", "reason_selected": "scenic_worldgen wild forests rivers and mountains worth settling"},
+    {"slug": "ct-overhaul-village", "role": "theme", "reason_selected": "villages settlements that invite renovation and frontier trade"},
+    {"slug": "explorify", "role": "theme", "reason_selected": "light_structures small discoveries without adventure bloat"},
+    {"slug": "repurposed-structures-fabric", "role": "theme", "reason_selected": "light_structures vanilla-style variety for roaming homesteaders"},
+    {"slug": "naturalist", "role": "theme", "reason_selected": "animals_wildlife living wilderness beyond vanilla spawns"},
+
+    {"slug": "visuality", "role": "theme", "reason_selected": "visual_polish gentle environmental particles"},
+    {"slug": "ambientsounds", "role": "theme", "reason_selected": "ambience biome ambience for forest river and homestead moments"},
+    {"slug": "sound-physics-remastered", "role": "theme", "reason_selected": "soundscape spatial cues for caves workshops and cottages"},
+    {"slug": "presence-footsteps", "role": "theme", "reason_selected": "soundscape immersive footfalls on paths fences and docks", "required": false},
+
+    {"slug": "chipped", "role": "theme", "reason_selected": "cozy_building_blocks large palette for cabins barns and docks"},
+    {"slug": "rechiseled", "role": "theme", "reason_selected": "cozy_building_blocks decorative masonry and trim"},
+    {"slug": "supplementaries", "role": "theme", "reason_selected": "decoration functional cozy props for kitchens and sheds"},
+    {"slug": "amendments", "role": "theme", "reason_selected": "decoration vanilla tweaks that complement lived-in bases"},
+    {"slug": "another-furniture", "role": "theme", "reason_selected": "furniture restrained seating and tables"},
+    {"slug": "handcrafted", "role": "theme", "reason_selected": "furniture richer homestead and inn pieces"},
+    {"slug": "macaws-bridges", "role": "theme", "reason_selected": "settlement_progression crossings over rivers and ravines"},
+    {"slug": "macaws-doors", "role": "theme", "reason_selected": "cozy_building_blocks cabin barn and workshop entrances"},
+    {"slug": "macaws-windows", "role": "theme", "reason_selected": "cozy_building_blocks warm window detailing"},
+    {"slug": "macaws-roofs", "role": "theme", "reason_selected": "cozy_building_blocks cottage barn and forge roof shapes"},
+    {"slug": "macaws-fences-and-walls", "role": "theme", "reason_selected": "settlement_progression pastures gardens and pens"},
+
+    {"slug": "create-fabric", "role": "theme", "reason_selected": "light_Create-style machinery mills waterwheels belts and scenic workshops"},
+
+    {"slug": "farmers-delight-refabricated", "role": "theme", "reason_selected": "farming cooking kitchen anchor for frontier meals"},
+    {"slug": "more-delight", "role": "theme", "reason_selected": "farming cooking verified Modrinth addon meals for Farmer's Delight", "required": false},
+
+    {"slug": "travelersbackpack", "role": "utility", "reason_selected": "backpack_mobile_storage surveying and supply runs"},
+    {"slug": "toms-storage", "role": "utility", "reason_selected": "base_storage simple networked storage without factory sprawl"},
+    {"slug": "xaeros-minimap", "role": "utility", "reason_selected": "map_tools local navigation during settlement scouting"},
+    {"slug": "xaeros-world-map", "role": "utility", "reason_selected": "map_tools frontier cartography linking outposts"},
+    {"slug": "natures-compass", "role": "utility", "reason_selected": "compass_discovery_tools find scenic biomes for builds"},
+    {"slug": "waystones", "role": "utility", "reason_selected": "comfortable_travel linking homestead village and expedition camps"},
+    {"slug": "comforts", "role": "utility", "reason_selected": "comfortable_travel sleeping bags without spawn abuse"}
+  ],
+  "shader_recommendations": [],
+  "notes": "Curated frontier homestead vibe: optional Presence Footsteps and More Delight may be dropped if runtime stabilization requires it; Croptopia omitted here because base Croptopia is not Modrinth-resolvable under MythWeaver naming and CurseForge API returned HTTP 403 in automation; no Inventory Profiles Next; Create Fabric kept decorative and light."
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "mythweaver_smoketest",
+  "version": "${version}",
+  "name": "MythWeaver Smoke Test",
+  "description": "Validation-only Fabric helper that emits deterministic MythWeaver runtime proof markers.",
+  "authors": ["MythWeaver"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.mythweaver.smoketest.MythWeaverSmokeTest"
+    ],
+    "client": [
+      "dev.mythweaver.smoketest.MythWeaverSmokeTestClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}

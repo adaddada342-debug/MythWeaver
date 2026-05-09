@@ -1,0 +1,14 @@
+{
+  "name": "Infinite Winter",
+  "prompt": "A horrifying infinite winter survival world with ancient ruins, abandoned villages, realistic terrain, terrifying creatures, and progression similar to The Long Dark.",
+  "themes": ["winter", "horror"],
+  "terrain": ["snow", "mountains", "frozen oceans", "villages"],
+  "gameplay": ["survival", "resource scarcity", "exploration"],
+  "mood": ["dark", "tense"],
+  "desired_systems": ["temperature", "weather", "structures", "hostile mobs"],
+  "performance_target": "balanced",
+  "multiplayer": "singleplayer",
+  "loader": "fabric",
+  "minecraft_version": "auto",
+  "max_mods": 45
+}

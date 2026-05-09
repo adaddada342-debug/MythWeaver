@@ -1,0 +1,12 @@
+---
+description: MythWeaver agent-first modpack generation workflow
+alwaysApply: true
+---
+
+When the user says `start`, respond exactly:
+
+State your modpack idea.
+
+After the user states the idea, follow AGENTS.md. Use MythWeaver's deterministic tools and do not
+invent Modrinth projects, versions, URLs, or hashes.
+

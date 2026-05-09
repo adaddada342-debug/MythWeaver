@@ -1,0 +1,52 @@
+{
+  "name": "Cozy Beautiful World",
+  "summary": "Relaxed cozy survival focused on farming, cooking, decoration, village improvement, and beautiful worldbuilding.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    {"slug": "sodium", "role": "foundation", "reason_selected": "required_01_performance_foundation renderer performance"},
+    {"slug": "lithium", "role": "foundation", "reason_selected": "required_01_performance_foundation gameplay optimization"},
+    {"slug": "ferrite-core", "role": "foundation", "reason_selected": "required_01_performance_foundation memory usage improvements"},
+    {"slug": "modernfix", "role": "foundation", "reason_selected": "required_01_performance_foundation broad memory and startup fixes"},
+    {"slug": "immediatelyfast", "role": "foundation", "reason_selected": "required_01_performance_foundation client rendering speedups"},
+    {"slug": "entityculling", "role": "foundation", "reason_selected": "required_01_performance_foundation reduce hidden entity rendering"},
+
+    {"slug": "modmenu", "role": "utility", "reason_selected": "required_12_client_qol mod configuration discovery"},
+    {"slug": "jade", "role": "utility", "reason_selected": "required_12_client_qol clear block/entity info for building and farming"},
+    {"slug": "emi", "role": "utility", "reason_selected": "required_11_inventory_management recipe and item lookup"},
+    {"slug": "appleskin", "role": "utility", "reason_selected": "required_12_client_qol food tooltip clarity for cooking"},
+    {"slug": "mouse-tweaks", "role": "utility", "reason_selected": "required_11_inventory_management smoother inventory interactions"},
+    {"slug": "shulkerboxtooltip", "role": "utility", "reason_selected": "required_11_inventory_management storage visibility"},
+    {"slug": "inventory-profiles-next", "role": "utility", "reason_selected": "required_11_inventory_management sorting and restocking QoL"},
+
+    {"slug": "chipped", "role": "theme", "reason_selected": "required_06_building_blocks broad block palette for cozy builds"},
+    {"slug": "rechiseled", "role": "theme", "reason_selected": "required_06_building_blocks decorative block variants"},
+    {"slug": "supplementaries", "role": "theme", "reason_selected": "required_05_decoration functional cozy decorative details"},
+    {"slug": "another-furniture", "role": "theme", "reason_selected": "required_05_decoration cozy interior furnishing"},
+    {"slug": "handcrafted", "role": "theme", "reason_selected": "required_05_decoration additional cozy furniture options"},
+    {"slug": "macaws-bridges", "role": "theme", "reason_selected": "required_06_building_blocks outdoor paths and village detailing"},
+    {"slug": "macaws-doors", "role": "theme", "reason_selected": "required_06_building_blocks home and village door variety"},
+    {"slug": "macaws-windows", "role": "theme", "reason_selected": "required_06_building_blocks cozy home window variety"},
+    {"slug": "macaws-roofs", "role": "theme", "reason_selected": "required_06_building_blocks roof shapes for cottage building"},
+
+    {"slug": "farmers-delight-refabricated", "role": "theme", "reason_selected": "required_02_farming and required_03_cooking core homestead loop"},
+    {"slug": "croptopia-delight", "role": "theme", "reason_selected": "required_02_farming Croptopia-style Farmer's Delight recipe integration; replacement for unavailable Modrinth croptopia slug"},
+    {"slug": "naturalist", "role": "theme", "reason_selected": "required_04_animals richer wildlife and animal atmosphere"},
+
+    {"slug": "terralith", "role": "theme", "reason_selected": "required_07_worldgen beautiful terrain for exploration and building inspiration"},
+    {"slug": "ct-overhaul-village", "role": "theme", "reason_selected": "required_08_villages improved villages for social/home progression"},
+    {"slug": "explorify", "role": "theme", "reason_selected": "required_09_light_exploration small discoveries without heavy danger"},
+
+    {"slug": "visuality", "role": "theme", "reason_selected": "required_13_visual_polish richer particles and atmosphere"},
+    {"slug": "ambientsounds", "role": "theme", "reason_selected": "required_14_atmosphere relaxing ambient world soundscape"},
+    {"slug": "sound-physics-remastered", "role": "theme", "reason_selected": "required_14_atmosphere believable audio space"},
+
+    {"slug": "xaeros-minimap", "role": "utility", "reason_selected": "required_09_light_exploration gentle navigation"},
+    {"slug": "xaeros-world-map", "role": "utility", "reason_selected": "required_09_light_exploration world memory and trip planning"},
+    {"slug": "waystones", "role": "utility", "reason_selected": "required_09_light_exploration friendly travel between home and villages"},
+    {"slug": "travelersbackpack", "role": "utility", "reason_selected": "required_10_storage_solution exploration storage"},
+    {"slug": "toms-storage", "role": "utility", "reason_selected": "required_10_storage_solution simple base storage network"}
+  ],
+  "shader_recommendations": [],
+  "notes": "Curated cozy-focused Fabric 1.20.1 starter list intended for review-list iteration."
+}

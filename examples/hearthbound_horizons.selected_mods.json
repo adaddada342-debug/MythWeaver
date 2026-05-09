@@ -1,0 +1,59 @@
+{
+  "name": "Hearthbound Horizons",
+  "summary": "A polished Fabric 1.20.1 cozy exploration survival pack focused on scenic worlds, atmospheric travel, farming, cooking, beautiful building, village improvement, storage progression, and long-term settlement projects without tech bloat or hardcore pressure.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    {"slug": "sodium", "role": "foundation", "reason_selected": "performance_foundation renderer performance for scenic terrain and decorated builds"},
+    {"slug": "lithium", "role": "foundation", "reason_selected": "performance_foundation broad gameplay and server optimization"},
+    {"slug": "ferrite-core", "role": "foundation", "reason_selected": "performance_foundation memory reduction for long survival worlds"},
+    {"slug": "modernfix", "role": "foundation", "reason_selected": "performance_foundation startup, memory, and stability fixes"},
+    {"slug": "immediatelyfast", "role": "foundation", "reason_selected": "performance_foundation client rendering speedups"},
+    {"slug": "entityculling", "role": "foundation", "reason_selected": "performance_foundation reduce hidden entity rendering cost"},
+    {"slug": "indium", "role": "foundation", "reason_selected": "performance_foundation Sodium compatibility for Fabric rendering API content"},
+
+    {"slug": "modmenu", "role": "utility", "reason_selected": "client_qol mod configuration discovery"},
+    {"slug": "jade", "role": "utility", "reason_selected": "client_qol readable block and entity information"},
+    {"slug": "emi", "role": "utility", "reason_selected": "inventory_management recipe and item discovery across food, storage, and decoration"},
+    {"slug": "appleskin", "role": "utility", "reason_selected": "client_qol food value clarity for cooking progression"},
+    {"slug": "mouse-tweaks", "role": "utility", "reason_selected": "inventory_management smoother inventory interactions"},
+    {"slug": "shulkerboxtooltip", "role": "utility", "reason_selected": "inventory_management container visibility while traveling"},
+    {"slug": "inventory-profiles-next", "role": "utility", "reason_selected": "inventory_management sorting and restocking quality of life"},
+
+    {"slug": "terralith", "role": "theme", "reason_selected": "worldgen beautiful vanilla-style terrain without stacking multiple full biome overhauls"},
+    {"slug": "ct-overhaul-village", "role": "theme", "reason_selected": "villages improved settlements that feel worth visiting and renovating"},
+    {"slug": "explorify", "role": "theme", "reason_selected": "light_exploration small discoveries and ruins without boss-heavy adventure bloat"},
+    {"slug": "repurposed-structures-fabric", "role": "theme", "reason_selected": "structures vanilla-style structure variety for relaxed journeys"},
+    {"slug": "naturalist", "role": "theme", "reason_selected": "animals immersive wildlife that makes the overworld feel alive"},
+
+    {"slug": "visuality", "role": "theme", "reason_selected": "visual_polish gentle particles and ambient detail"},
+    {"slug": "ambientsounds", "role": "theme", "reason_selected": "atmosphere relaxing biome ambience and immersive soundscape"},
+    {"slug": "sound-physics-remastered", "role": "theme", "reason_selected": "soundscape spatial audio for caves, homes, forests, and villages"},
+    {"slug": "presence-footsteps", "role": "theme", "reason_selected": "soundscape grounded travel and building ambience"},
+
+    {"slug": "chipped", "role": "theme", "reason_selected": "building_blocks large palette for homes, workshops, barns, docks, and village streets"},
+    {"slug": "rechiseled", "role": "theme", "reason_selected": "building_blocks decorative variants for long-term build projects"},
+    {"slug": "supplementaries", "role": "theme", "reason_selected": "decoration functional cozy details that support lived-in spaces"},
+    {"slug": "amendments", "role": "theme", "reason_selected": "decoration vanilla block improvements that complement Supplementaries"},
+    {"slug": "another-furniture", "role": "theme", "reason_selected": "decoration restrained furniture for cozy interiors"},
+    {"slug": "handcrafted", "role": "theme", "reason_selected": "decoration richer furniture for homes, kitchens, inns, and settlements"},
+    {"slug": "macaws-bridges", "role": "theme", "reason_selected": "building_blocks roads, rivers, and scenic infrastructure"},
+    {"slug": "macaws-doors", "role": "theme", "reason_selected": "building_blocks home and village exterior variety"},
+    {"slug": "macaws-windows", "role": "theme", "reason_selected": "building_blocks cozy home and workshop detailing"},
+    {"slug": "macaws-roofs", "role": "theme", "reason_selected": "building_blocks cottage, barn, dock, and village roof shapes"},
+    {"slug": "macaws-fences-and-walls", "role": "theme", "reason_selected": "building_blocks farms, gardens, pastures, and settlement boundaries"},
+
+    {"slug": "farmers-delight-refabricated", "role": "theme", "reason_selected": "farming cooking core kitchen and homestead progression"},
+    {"slug": "croptopia-delight", "role": "theme", "reason_selected": "farming cooking extra food goals integrated with Farmer's Delight style play"},
+
+    {"slug": "travelersbackpack", "role": "utility", "reason_selected": "storage_solution mobile storage for scenic expeditions"},
+    {"slug": "toms-storage", "role": "utility", "reason_selected": "storage_solution simple base storage progression without factory bloat"},
+    {"slug": "xaeros-minimap", "role": "utility", "reason_selected": "map_tools gentle navigation for exploration and settlement planning"},
+    {"slug": "xaeros-world-map", "role": "utility", "reason_selected": "map_tools long-term world memory and route planning"},
+    {"slug": "natures-compass", "role": "utility", "reason_selected": "light_exploration biome finding for beautiful build sites without full quest bloat"},
+    {"slug": "waystones", "role": "utility", "reason_selected": "waypoints_or_fast_travel optional travel between homes, villages, and scenic outposts"},
+    {"slug": "comforts", "role": "utility", "reason_selected": "backpack_travel_systems sleeping bags for long journeys without resetting spawn"}
+  ],
+  "shader_recommendations": [],
+  "notes": "Curated to stay cozy and stable: no large tech suite, no gun/chaos path, no hardcore survival realism, no duplicate full worldgen stack. Human taste review should focus on whether Xaero maps feel too revealing and whether Waystones should be recipe-gated for slower travel progression."
+}

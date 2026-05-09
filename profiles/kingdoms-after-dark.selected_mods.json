@@ -1,0 +1,45 @@
+{
+  "name": "Kingdoms After Dark",
+  "summary": "Medieval fantasy survival-adventure with dangerous nights, fortified settlements, dense structure exploration, and optimized shader-ready Fabric performance.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    { "slug": "sodium", "role": "foundation", "reason_selected": "High-impact renderer optimization baseline." },
+    { "slug": "lithium", "role": "foundation", "reason_selected": "Server and gameplay logic optimization." },
+    { "slug": "ferrite-core", "role": "foundation", "reason_selected": "Memory usage reduction for stability." },
+    { "slug": "iris", "role": "shader_support", "reason_selected": "Reliable shader loader for Fabric." },
+    { "slug": "indium", "role": "foundation", "reason_selected": "Rendering API bridge for Sodium stacks." },
+    { "slug": "entityculling", "role": "foundation", "reason_selected": "Occlusion culling for better FPS in dense areas." },
+    { "slug": "immediatelyfast", "role": "foundation", "reason_selected": "Additional render pipeline acceleration." },
+    { "slug": "krypton", "role": "foundation", "reason_selected": "Network stack optimization for smoother play." },
+    { "slug": "modmenu", "role": "utility", "reason_selected": "Manage and inspect mods in-game." },
+
+    { "slug": "terralith", "role": "theme", "reason_selected": "Fantasy-leaning biome and terrain variety." },
+    { "slug": "towns-and-towers", "role": "theme", "reason_selected": "Village and outpost expansion for kingdom flavor." },
+    { "slug": "when-dungeons-arise", "role": "theme", "reason_selected": "Large hostile dungeons and landmark structures." },
+    { "slug": "yungs-better-dungeons", "role": "theme", "reason_selected": "Improved dungeon quality and encounter spaces." },
+    { "slug": "yungs-better-mineshafts", "role": "theme", "reason_selected": "Richer ruin exploration underground." },
+    { "slug": "yungs-better-strongholds", "role": "theme", "reason_selected": "Long-form fortress exploration progression." },
+
+    { "slug": "better-combat", "role": "theme", "reason_selected": "More deliberate melee combat feel." },
+    { "slug": "combat-roll", "role": "theme", "reason_selected": "Adds mobility and skill expression in fights." },
+    { "slug": "simply-swords", "role": "theme", "reason_selected": "Expanded medieval weapon roster." },
+    { "slug": "adventurez", "role": "theme", "reason_selected": "Adds dangerous creatures and bosses." },
+    { "slug": "enhanced-celestials", "role": "theme", "reason_selected": "Blood-moon style events to intensify nights." },
+
+    { "slug": "waystones", "role": "utility", "reason_selected": "Village hubs and safe-travel routing." },
+    { "slug": "xaeros-minimap", "role": "utility", "reason_selected": "Local navigation in dangerous wilderness." },
+    { "slug": "xaeros-world-map", "role": "utility", "reason_selected": "Long-distance exploration planning." },
+    { "slug": "explorers-compass", "role": "utility", "reason_selected": "Locate structures without external tools." },
+    { "slug": "natures-compass", "role": "utility", "reason_selected": "Find key biomes for progression routes." },
+    { "slug": "lootr", "role": "utility", "reason_selected": "Improved loot flow for exploration groups." },
+
+    { "slug": "sound-physics-remastered", "role": "theme", "reason_selected": "Atmospheric reverb/occlusion for ruins and caves." },
+    { "slug": "visuality", "role": "theme", "reason_selected": "Subtle fantasy atmosphere and particle ambience." }
+  ],
+  "shader_recommendations": [
+    "Do not bundle shaders directly; use externally verified shader packs with Iris.",
+    "For this theme, pick darker cinematic presets and tune brightness to keep nights threatening."
+  ],
+  "notes": "Curated for medieval exploration, dangerous nights, and village-safe-hub progression while avoiding sci-fi, automation-heavy, and modern-tech themes."
+}

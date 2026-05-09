@@ -1,0 +1,66 @@
+{
+  "name": "The Sun Forgot Us",
+  "summary": "A cold survival-exploration modpack where the sun is dying, daylight is weakening, nights grow longer, villages need light and heat protection, frozen ruins and observatories scatter the world, and the player builds heat shelters and light networks to survive.",
+  "themes": [
+    "dying sun",
+    "cold apocalypse",
+    "long nights",
+    "frozen ruins",
+    "village defense"
+  ],
+  "search_keywords": [
+    "winter",
+    "cold",
+    "frozen",
+    "darkness",
+    "undead",
+    "ruins",
+    "structures",
+    "villages",
+    "temperature",
+    "survival",
+    "atmosphere",
+    "shader",
+    "performance"
+  ],
+  "negative_keywords": [
+    "desert",
+    "outback",
+    "badlands",
+    "tropical",
+    "heat survival"
+  ],
+  "required_capabilities": [
+    "cold_survival",
+    "structures",
+    "undead",
+    "performance_foundation",
+    "shader_support"
+  ],
+  "preferred_capabilities": [
+    "village_defense",
+    "atmosphere",
+    "fog_weather",
+    "exploration",
+    "dungeons",
+    "waystones",
+    "maps",
+    "resource_scarcity"
+  ],
+  "forbidden_capabilities": [
+    "desert_worldgen",
+    "outback",
+    "tropical_worldgen"
+  ],
+  "explicit_exclusions": [
+    "desert",
+    "outback",
+    "badlands"
+  ],
+  "foundation_policy": {
+    "performance": "enabled",
+    "shaders": "enabled",
+    "utilities": "enabled"
+  },
+  "max_selected_before_dependencies": 35
+}
