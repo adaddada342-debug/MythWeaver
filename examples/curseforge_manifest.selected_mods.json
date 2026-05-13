@@ -1,0 +1,16 @@
+{
+  "name": "CurseForge Manifest Example",
+  "summary": "Example selected list intended for CurseForge manifest export.",
+  "minecraft_version": "1.20.1",
+  "loader": "forge",
+  "mods": [
+    {
+      "source": "curseforge",
+      "source_project_id": "238222",
+      "role": "theme",
+      "reason_selected": "CurseForge source resolved by official API using projectID/fileID."
+    }
+  ],
+  "shader_recommendations": [],
+  "notes": "Requires CURSEFORGE_API_KEY. Manifest export can use projectID/fileID even when CurseForge omits direct downloadUrl."
+}

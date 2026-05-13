@@ -1,4 +1,3 @@
-import asyncio
 import json
 import unittest
 import zipfile
@@ -152,7 +151,7 @@ class PipelineGenerationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_dependency_expansion_is_consumed_by_resolver_and_export(self):
         from mythweaver.pipeline.service import GenerationPipeline
-        from mythweaver.schemas.contracts import DependencyRecord, GenerationRequest, RequirementProfile
+        from mythweaver.schemas.contracts import GenerationRequest, RequirementProfile
 
         class DependencyExpansionModrinth:
             async def search_projects(self, plan):

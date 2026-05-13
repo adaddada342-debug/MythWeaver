@@ -6,9 +6,9 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from tests.test_agent_selected_workflow import FakeAgentFacade, project_payload
-from tests.test_pipeline_discovery import version_payload
 from tests.test_runtime_stabilization import RuntimeFacade
+
+TEST_HASHES = {"sha1": "a" * 40, "sha512": "b" * 128}
 
 
 class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
@@ -191,7 +191,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             name="Local Mod",
             loaders=["fabric"],
             minecraft_versions=["1.20.1"],
-            hashes={"sha1": "abc"},
+            download_url="C:/mods/local.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
         )
         self.assertEqual(
@@ -322,6 +323,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             project_id="main",
             slug="main",
             name="Main",
+            download_url="https://example.invalid/main.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
             dependency_records=[SourceDependencyRecord(source="modrinth", project_id="missing-lib", dependency_type="required")],
         )
@@ -349,6 +352,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             project_id="main",
             slug="main",
             name="Main",
+            download_url="https://example.invalid/main.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
             dependency_records=[SourceDependencyRecord(source="curseforge", project_id="12345", dependency_type="required")],
         )
@@ -356,6 +361,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             source="curseforge",
             project_id="12345",
             name="CurseForge Lib",
+            download_url="https://example.invalid/curse-lib.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
         )
         providers = {
@@ -395,6 +402,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             project_id="main",
             slug="main",
             name="Main",
+            download_url="https://example.invalid/main.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
             dependency_records=[SourceDependencyRecord(source="modrinth", project_id="nice-extra", dependency_type="optional")],
         )
@@ -422,6 +431,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             project_id="main",
             slug="main",
             name="Main",
+            download_url="https://example.invalid/main.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
             dependency_records=[
                 SourceDependencyRecord(source="modrinth", project_id="library", version_id="required-version", dependency_type="required")
@@ -433,6 +444,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             slug="library",
             name="Library",
             file_id="wrong-version",
+            download_url="https://example.invalid/library.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
         )
         providers = {"modrinth": FakeClosureProvider("modrinth", {"main": main, "library": wrong_library})}
@@ -459,6 +472,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             project_id="croptopia-delight",
             slug="croptopia-delight",
             name="Croptopia Delight",
+            download_url="https://example.invalid/croptopia-delight.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
             dependency_records=[
                 SourceDependencyRecord(
@@ -475,6 +490,8 @@ class SourceLayerTests(unittest.IsolatedAsyncioTestCase):
             slug="croptopia",
             name="Croptopia",
             version_number="3.0.4",
+            download_url="https://example.invalid/croptopia.jar",
+            hashes=TEST_HASHES,
             acquisition_status="verified_auto",
         )
         providers = {"modrinth": FakeClosureProvider("modrinth", {"croptopia-delight": delight, "croptopia": croptopia})}

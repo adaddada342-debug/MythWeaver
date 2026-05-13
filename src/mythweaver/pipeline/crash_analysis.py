@@ -24,6 +24,21 @@ def analyze_crash_report(
 ) -> CrashAnalysisReport:
     text = crash_text or ""
     findings: list[CrashFinding] = []
+    lower = text.lower()
+    if "some of your mods are incompatible" in lower or "incompatible mods found" in lower:
+        findings.append(
+            CrashFinding(
+                severity="critical",
+                kind="final_artifact_invalid",
+                title="Fabric Loader mass incompatibility (final artifact set invalid)",
+                detail="Loader suggests removing many mods—often duplicate fabric.mod.json ids, wrong Minecraft edition jars, or bad dependency closure.",
+                suggested_actions=[
+                    "Inspect final_artifact_validation_report.json from the last MythWeaver build.",
+                    "Deduplicate jars sharing the same Fabric mod id and remove jars whose fabric.mod.json excludes the pack Minecraft version.",
+                ],
+                ai_instruction="Treat as packaging/artifact validation failure before blaming individual mod logic.",
+            )
+        )
     crashing_mod = _entrypoint_mod(text)
     missing_class = _missing_class(text)
     missing_mod = _map_missing_class(missing_class or text)

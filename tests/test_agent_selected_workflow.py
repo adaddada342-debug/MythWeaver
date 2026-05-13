@@ -112,7 +112,7 @@ class FakeAgentFacade:
     def detect_conflicts(self, candidates):
         return []
 
-    async def build_pack(self, pack, output_dir, download=True):
+    async def build_pack(self, pack, output_dir, download=True, **kwargs):
         from mythweaver.builders.mrpack import build_mrpack
 
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -156,6 +156,59 @@ class AgentSelectedWorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report.status, "completed")
         self.assertIn("sodium-id", {mod.project_id for mod in report.user_selected_mods})
         self.assertIn("lithium-id", {mod.project_id for mod in report.user_selected_mods})
+
+    async def test_verify_list_rejects_duplicate_selected_slug(self):
+        from mythweaver.pipeline.agent_service import AgentModpackService
+        from mythweaver.schemas.contracts import SelectedModList
+
+        selected = SelectedModList.model_validate(
+            {
+                "name": "Dup Slug",
+                "minecraft_version": "1.20.1",
+                "loader": "fabric",
+                "mods": [
+                    {"slug": "sodium", "role": "foundation"},
+                    {"slug": "sodium", "role": "foundation"},
+                ],
+            }
+        )
+        report = await AgentModpackService(FakeAgentFacade()).verify_mod_list(selected)
+        self.assertEqual(report.status, "failed")
+        self.assertTrue(any(r.reason == "duplicate_selected_entry" for r in report.rejected_mods))
+
+    async def test_verify_list_rejects_same_modrinth_project_twice(self):
+        from mythweaver.pipeline.agent_service import AgentModpackService
+        from mythweaver.schemas.contracts import SelectedModList
+
+        selected = SelectedModList.model_validate(
+            {
+                "name": "Dup Project",
+                "minecraft_version": "1.20.1",
+                "loader": "fabric",
+                "mods": [
+                    {"slug": "sodium", "role": "foundation"},
+                    {"modrinth_id": "sodium-id", "role": "foundation"},
+                ],
+            }
+        )
+        report = await AgentModpackService(FakeAgentFacade()).verify_mod_list(selected)
+        self.assertEqual(report.status, "failed")
+        self.assertTrue(any(r.reason == "duplicate_selected_modrinth_project" for r in report.rejected_mods))
+
+    async def test_search_mods_filters_hack_slug(self):
+        from mythweaver.pipeline.agent_service import AgentModpackService
+
+        facade = FakeAgentFacade()
+        facade.modrinth.projects["evil-hacks-id"] = project_payload(
+            "evil-hacks-id", slug="evil-hacks", title="Evil Tweaks", categories=["utility"]
+        )
+        facade.modrinth.projects["evil-hacks"] = facade.modrinth.projects["evil-hacks-id"]
+        facade.modrinth.versions["evil-hacks-id"] = [version_payload("evil-hacks-id")]
+        facade.modrinth.versions["evil-hacks"] = facade.modrinth.versions["evil-hacks-id"]
+
+        out = await AgentModpackService(facade).search_mods("evil")
+        slugs = [r.get("slug") for r in out["results"]]
+        self.assertNotIn("evil-hacks", slugs)
 
     async def test_verify_list_rejects_incompatible_loader_version(self):
         from mythweaver.pipeline.agent_service import AgentModpackService

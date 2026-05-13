@@ -9,7 +9,12 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from mythweaver.autopilot.contracts import AutopilotReport, AutopilotRequest
+from mythweaver.autopilot.loop import run_autopilot
+from mythweaver.builders.curseforge_manifest import build_curseforge_manifest
 from mythweaver.builders.paths import safe_slug
+from mythweaver.builders.source_instance import build_source_instance
+from mythweaver.catalog.target_matrix import build_target_matrix
 from mythweaver.handoff import (
     write_cloud_ai_agent_repair_prompt,
     write_cloud_ai_blueprint_selection_prompt,
@@ -21,6 +26,7 @@ from mythweaver.handoff import (
     write_cloud_ai_review_prompt,
 )
 from mythweaver.knowledge.compatibility import CompatibilityMemory
+from mythweaver.knowledge.fabric_artifact_policy import shallow_search_blocked
 from mythweaver.launcher.runtime import run_launch_check, write_runtime_smoke_report
 from mythweaver.launcher.setup import setup_launcher_instance, write_launcher_reports
 from mythweaver.modrinth.client import candidate_from_project_hit
@@ -195,6 +201,17 @@ class AgentModpackService:
                 continue
             if role and inspected["probable_role"] != role:
                 continue
+            lcv = inspected.get("latest_compatible_version")
+            vn = ""
+            if isinstance(lcv, dict):
+                vn = str(lcv.get("version_number") or "")
+            blocked = shallow_search_blocked(
+                slug=str(inspected.get("slug") or ""),
+                title=str(inspected.get("title") or inspected.get("name") or inspected.get("slug") or ""),
+                version_number=vn or "1.0.0",
+            )
+            if blocked:
+                continue
             results.append(inspected)
         return {"query": query, "loader": loader, "minecraft_version": minecraft_version, "results": results}
 
@@ -321,6 +338,30 @@ class AgentModpackService:
         )
         requested_ids = [candidate.project_id for candidate in expanded]
         resolved = self.facade.resolve_dependencies(requested_ids, expanded, profile)
+        memory_hints = self.memory.hints_for_candidates(
+            verified.user_selected_mods,
+            minecraft_version=selected.minecraft_version,
+            loader=selected.loader,
+        )
+        compat_warnings = list(memory_hints["warnings"])
+
+        seen_closure: set[str] = set()
+        deduped_selected: list[CandidateMod] = []
+        dup_closure: list[str] = []
+        for mod in resolved.selected_mods:
+            if mod.project_id in seen_closure:
+                dup_closure.append(mod.project_id)
+                continue
+            seen_closure.add(mod.project_id)
+            deduped_selected.append(mod)
+        if dup_closure:
+            resolved = resolved.model_copy(update={"selected_mods": deduped_selected})
+            uniq = sorted(set(dup_closure))
+            compat_warnings.append(
+                "Resolved dependency closure listed the same Modrinth project more than once "
+                f"(deduped): {', '.join(uniq)}"
+            )
+
         rejected = dependency_rejections + resolved.rejected_mods
         dependency_added = [candidate for candidate in expanded if candidate.selection_type == "dependency_added"]
         status = "failed" if rejected else "completed"
@@ -338,6 +379,10 @@ class AgentModpackService:
             dependency_source_breakdown={"modrinth": len(resolved.selected_mods if not rejected else expanded)},
             dependency_closure_passed=not rejected,
             dependency_edges=resolved.dependency_edges,
+            compatibility_warnings=compat_warnings,
+            known_good_matches=memory_hints["known_good_matches"],
+            known_risk_matches=memory_hints["known_risk_matches"],
+            memory_confidence_adjustment=memory_hints["confidence_adjustment"],
         )
 
     async def review_mod_list(
@@ -581,6 +626,12 @@ class AgentModpackService:
         force: bool = False,
         loader_version: str | None = None,
         memory_mb: int | None = None,
+        sources: list[str] | None = None,
+        target_export: str | None = None,
+        auto_target: bool = False,
+        candidate_versions: list[str] | None = None,
+        candidate_loaders: list[str] | None = None,
+        allow_manual_sources: bool = False,
     ) -> AgentPackReport:
         output_dir = Path(output_dir)
         gate = _blocking_review_report(output_dir)
@@ -598,6 +649,18 @@ class AgentModpackService:
             )
             _write_agent_report(report, output_dir)
             return report
+        if sources is not None or target_export is not None or auto_target:
+            return await self._build_from_list_sources(
+                selected,
+                output_dir,
+                sources=sources or ["modrinth"],
+                target_export=target_export or "local_instance",
+                auto_target=auto_target,
+                candidate_versions=candidate_versions,
+                candidate_loaders=candidate_loaders,
+                allow_manual_sources=allow_manual_sources,
+                loader_version=loader_version,
+            )
         resolved = await self.resolve_mod_list(selected)
         if resolved.status == "failed":
             resolved.output_dir = str(output_dir)
@@ -618,13 +681,46 @@ class AgentModpackService:
             loader_version=loader_version,
         )
         build_pack_parameters = inspect.signature(self.facade.build_pack).parameters
-        build_kwargs: dict[str, Any] = {"download": download}
+        prefer_ids = frozenset({m.project_id for m in resolved.user_selected_mods})
+        build_kwargs: dict[str, Any] = {"download": download, "artifact_prefer_project_ids": prefer_ids}
         if "memory_mb" in build_pack_parameters:
             build_kwargs["memory_mb"] = memory_mb
         artifacts = await self.facade.build_pack(pack, output_dir, **build_kwargs)
         warnings = list(resolved.compatibility_warnings)
         if gate and force:
             warnings.append(gate + " Forced build/export was requested.")
+        artifact_report = getattr(self.facade, "last_final_artifact_validation_report", None) or {}
+        artifact_ok = bool(getattr(self.facade, "last_final_artifact_validation_ok", True))
+        artifact_path = Path(output_dir) / "final_artifact_validation_report.json"
+        summary_bits = [
+            f"artifact_validation_status={artifact_report.get('status', 'unknown')}",
+            f"final_mod_count={artifact_report.get('final_mod_count')}",
+            f"removed_duplicate_jars={len(artifact_report.get('removed_duplicate_jars') or [])}",
+        ]
+        artifact_summary = "; ".join(str(x) for x in summary_bits if x)
+        if artifact_report.get("status") == "warnings":
+            warnings.append(
+                "Final mods-folder validation reported warnings (inspect final_artifact_validation_report.json for missing fabric.mod.json entries)."
+            )
+        if not artifact_ok:
+            warnings.append("Final artifact validation FAILED; modpack export was aborted before writing .mrpack / Prism instance.")
+            report = resolved.model_copy(
+                update={
+                    "status": "failed",
+                    "failed_stage": "final_artifact_validation",
+                    "generated_artifacts": artifacts,
+                    "artifacts": artifacts,
+                    "output_dir": str(output_dir),
+                    "compatibility_warnings": warnings,
+                    "next_actions": ["inspect_final_artifact_validation_report", "fix_selected_mods", "rebuild"],
+                    "final_artifact_validation_status": str(artifact_report.get("status") or "failed"),
+                    "final_artifact_validation_report_path": str(artifact_path) if artifact_path.is_file() else None,
+                    "final_artifact_validation_summary": artifact_summary,
+                }
+            )
+            _write_agent_report(report, output_dir)
+            _write_removed_mods(report.removed_mods, output_dir)
+            return report
         report = resolved.model_copy(
             update={
                 "generated_artifacts": artifacts,
@@ -632,6 +728,9 @@ class AgentModpackService:
                 "output_dir": str(output_dir),
                 "compatibility_warnings": warnings,
                 "next_actions": ["inspect_report", "validate_launch"],
+                "final_artifact_validation_status": str(artifact_report.get("status") or ("skipped" if not download else "passed")),
+                "final_artifact_validation_report_path": str(artifact_path) if artifact_path.is_file() else None,
+                "final_artifact_validation_summary": artifact_summary,
             }
         )
         if validate_launch:
@@ -672,6 +771,145 @@ class AgentModpackService:
             )
         _write_agent_report(report, output_dir)
         _write_removed_mods(report.removed_mods, output_dir)
+        return report
+
+    async def _build_from_list_sources(
+        self,
+        selected: SelectedModList,
+        output_dir: Path,
+        *,
+        sources: list[str],
+        target_export: str,
+        auto_target: bool,
+        candidate_versions: list[str] | None,
+        candidate_loaders: list[str] | None,
+        allow_manual_sources: bool,
+        loader_version: str | None,
+    ) -> AgentPackReport:
+        working = selected.model_copy(deep=True)
+        artifacts: list[BuildArtifact] = []
+        warnings: list[str] = []
+        if auto_target and (working.minecraft_version in {"auto", "any"} or working.loader in {"auto", "any"}):
+            matrix = await build_target_matrix(
+                working,
+                sources=sources,
+                candidate_versions=candidate_versions,
+                candidate_loaders=candidate_loaders,
+                target_export=target_export,
+                facade=self.facade,
+                allow_manual_sources=allow_manual_sources,
+            )
+            (output_dir / "target_matrix_report.json").write_text(matrix.model_dump_json(indent=2), encoding="utf-8")
+            artifacts.append(BuildArtifact(kind="target-matrix-report", path=str(output_dir / "target_matrix_report.json")))
+            if matrix.best is None or matrix.status == "failed":
+                report = self._report(
+                    working,
+                    status="failed",
+                    failed_stage="target_negotiation",
+                    generated_artifacts=artifacts,
+                    artifacts=artifacts,
+                    compatibility_warnings=matrix.warnings,
+                    output_dir=str(output_dir),
+                    next_actions=["inspect_target_matrix_report", "constrain_minecraft_version_or_loader"],
+                )
+                _write_agent_report(report, output_dir)
+                return report
+            working.minecraft_version = matrix.best.minecraft_version
+            working.loader = matrix.best.loader
+            warnings.extend(matrix.best.warnings)
+
+        source_report = await self.resolve_sources(
+            working,
+            sources=sources,
+            target_export=target_export,
+            autonomous=not allow_manual_sources,
+            allow_manual_sources=allow_manual_sources,
+            output_dir=output_dir,
+        )
+        blockers = list(source_report.export_blockers)
+        if source_report.status == "failed" or blockers or not source_report.export_supported:
+            report = self._report(
+                working,
+                status="failed",
+                failed_stage="source_resolution",
+                generated_artifacts=artifacts,
+                artifacts=artifacts,
+                compatibility_warnings=warnings + source_report.warnings + blockers,
+                unresolved_required_dependencies=source_report.unresolved_required_dependencies,
+                manually_required_dependencies=source_report.manually_required_dependencies,
+                dependency_source_breakdown=source_report.dependency_source_breakdown,
+                dependency_closure_passed=source_report.dependency_closure_passed,
+                output_dir=str(output_dir),
+                next_actions=["inspect_source_resolve_report", "replace_blocked_sources", "choose_compatible_export_target"],
+            )
+            _write_agent_report(report, output_dir)
+            return report
+
+        if target_export == "curseforge_manifest":
+            artifact = build_curseforge_manifest(
+                source_report,
+                output_dir / f"{safe_slug(working.name, fallback='mythweaver-pack')}-curseforge.zip",
+                name=working.name,
+                version="1.0.0",
+                author="MythWeaver",
+                loader_version=loader_version,
+            )
+            artifacts.append(artifact)
+            report = self._report(
+                working,
+                status="completed",
+                generated_artifacts=artifacts,
+                artifacts=artifacts,
+                dependency_source_breakdown=source_report.dependency_source_breakdown,
+                dependency_closure_passed=source_report.dependency_closure_passed,
+                transitive_dependency_count=source_report.transitive_dependency_count,
+                compatibility_warnings=warnings + source_report.warnings,
+                output_dir=str(output_dir),
+                next_actions=["import_curseforge_manifest"],
+            )
+            _write_agent_report(report, output_dir)
+            return report
+
+        if target_export in {"prism_instance", "local_instance", "multimc_instance"}:
+            artifact = build_source_instance(
+                source_report,
+                output_dir / "instances",
+                name=working.name,
+                loader_version=loader_version,
+                user_agent=getattr(getattr(self.facade, "settings", None), "modrinth_user_agent", "MythWeaver"),
+                prism=target_export != "local_instance",
+            )
+            artifacts.append(artifact)
+            report = self._report(
+                working,
+                status="completed",
+                generated_artifacts=artifacts,
+                artifacts=artifacts,
+                dependency_source_breakdown=source_report.dependency_source_breakdown,
+                dependency_closure_passed=source_report.dependency_closure_passed,
+                transitive_dependency_count=source_report.transitive_dependency_count,
+                compatibility_warnings=warnings + source_report.warnings,
+                output_dir=str(output_dir),
+                next_actions=["validate_launch"],
+            )
+            _write_agent_report(report, output_dir)
+            return report
+
+        report = self._report(
+            working,
+            status="failed",
+            failed_stage="source_export",
+            generated_artifacts=artifacts,
+            artifacts=artifacts,
+            compatibility_warnings=warnings
+            + source_report.warnings
+            + [f"{target_export} source-aware export is resolved but not yet buildable without downloader integration."],
+            dependency_source_breakdown=source_report.dependency_source_breakdown,
+            dependency_closure_passed=source_report.dependency_closure_passed,
+            output_dir=str(output_dir),
+            next_actions=["use_curseforge_manifest_or_existing_modrinth_build", "inspect_source_resolve_report"],
+        )
+        _write_agent_report(report, output_dir)
         return report
 
     async def agent_check(
@@ -858,9 +1096,88 @@ class AgentModpackService:
         download: bool = True,
         validate_launch: bool = False,
         force: bool = False,
+        sources: list[str] | None = None,
+        target_export: str | None = None,
+        auto_target: bool = False,
+        candidate_versions: list[str] | None = None,
+        candidate_loaders: list[str] | None = None,
+        allow_manual_sources: bool = False,
+        loader_version: str | None = None,
     ) -> AgentPackReport:
         target = output_dir or Path("output") / "generated" / safe_slug(selected.name, fallback="agent-pack")
-        return await self.build_from_list(selected, target, download=download, validate_launch=validate_launch, force=force)
+        return await self.build_from_list(
+            selected,
+            target,
+            download=download,
+            validate_launch=validate_launch,
+            force=force,
+            sources=sources,
+            target_export=target_export,
+            auto_target=auto_target,
+            candidate_versions=candidate_versions,
+            candidate_loaders=candidate_loaders,
+            allow_manual_sources=allow_manual_sources,
+            loader_version=loader_version,
+        )
+
+    async def build_verify_and_repair_pack(
+        self,
+        selected: SelectedModList,
+        output_root: Path,
+        *,
+        sources: list[str] | None = None,
+        target_export: str = "local_instance",
+        minecraft_version: str = "auto",
+        loader: str = "auto",
+        loader_version: str | None = None,
+        candidate_versions: list[str] | None = None,
+        candidate_loaders: list[str] | None = None,
+        max_attempts: int = 5,
+        memory_mb: int = 4096,
+        timeout_seconds: int = 180,
+        java_path: str | None = None,
+        allow_manual_sources: bool = False,
+        allow_target_switch: bool = True,
+        allow_loader_switch: bool = True,
+        allow_minecraft_version_switch: bool = True,
+        allow_remove_content_mods: bool = False,
+        keep_failed_instances: bool = False,
+        inject_smoke_test: bool = True,
+        smoke_test_helper_path: str | None = None,
+        require_smoke_test_proof: bool = True,
+        minimum_stability_seconds: int = 60,
+    ) -> AutopilotReport:
+        output_root = Path(output_root)
+        output_root.mkdir(parents=True, exist_ok=True)
+        selected_path = output_root / "selected_mods.autopilot_input.json"
+        selected_path.write_text(selected.model_dump_json(indent=2), encoding="utf-8")
+        return await run_autopilot(
+            AutopilotRequest(
+                selected_mods_path=str(selected_path),
+                sources=sources or ["modrinth", "curseforge"],
+                target_export=target_export,
+                minecraft_version=minecraft_version,
+                loader=loader,
+                loader_version=loader_version,
+                candidate_versions=candidate_versions or [],
+                candidate_loaders=candidate_loaders or [],
+                max_attempts=max_attempts,
+                memory_mb=memory_mb,
+                timeout_seconds=timeout_seconds,
+                output_root=str(output_root),
+                java_path=java_path,
+                allow_manual_sources=allow_manual_sources,
+                allow_target_switch=allow_target_switch,
+                allow_loader_switch=allow_loader_switch,
+                allow_minecraft_version_switch=allow_minecraft_version_switch,
+                allow_remove_content_mods=allow_remove_content_mods,
+                keep_failed_instances=keep_failed_instances,
+                inject_smoke_test=inject_smoke_test,
+                smoke_test_helper_path=smoke_test_helper_path,
+                require_smoke_test_proof=require_smoke_test_proof,
+                minimum_stability_seconds=minimum_stability_seconds,
+            )
+        )
 
     async def analyze_crash(
         self,
@@ -1609,11 +1926,34 @@ class AgentModpackService:
     async def _hydrate_selected_mods(self, selected: SelectedModList) -> tuple[list[CandidateMod], list[RejectedMod]]:
         candidates: list[CandidateMod] = []
         rejected: list[RejectedMod] = []
+        seen_selected_keys: set[str] = set()
+        seen_project_ids: set[str] = set()
         for entry in selected.mods:
+            ident_key = entry.identifier().strip().lower()
+            if ident_key in seen_selected_keys:
+                rejected.append(
+                    RejectedMod(
+                        project_id=entry.identifier(),
+                        reason="duplicate_selected_entry",
+                        detail="Duplicate slug or modrinth_id in selected_mods.json",
+                    )
+                )
+                continue
             try:
                 project = await self.facade.modrinth.get_project(entry.identifier())
             except Exception:
                 rejected.append(RejectedMod(project_id=entry.identifier(), reason="project_not_found"))
+                continue
+            pid_norm = str(project.get("id") or project.get("project_id") or "").strip().lower()
+            if pid_norm and pid_norm in seen_project_ids:
+                rejected.append(
+                    RejectedMod(
+                        project_id=entry.identifier(),
+                        title=project.get("title"),
+                        reason="duplicate_selected_modrinth_project",
+                        detail="Same Modrinth project already selected under another entry",
+                    )
+                )
                 continue
             if project.get("project_type", "mod") != "mod":
                 rejected.append(RejectedMod(project_id=entry.identifier(), title=project.get("title"), reason="not_a_mod_project"))
@@ -1645,6 +1985,9 @@ class AgentModpackService:
             candidate.why_selected = [entry.reason_selected] if entry.reason_selected else []
             candidate.matched_capabilities = sorted(infer_candidate_capabilities(candidate))
             candidates.append(candidate)
+            seen_selected_keys.add(ident_key)
+            if pid_norm:
+                seen_project_ids.add(pid_norm)
         return candidates, rejected
 
     def _report(self, selected: SelectedModList, **updates: Any) -> AgentPackReport:
@@ -1806,7 +2149,7 @@ def _installability_message(
     if reason == "invalid_modrinth_metadata":
         return f"Project exists, but compatible metadata is invalid: {invalid_metadata_reason}"
     if reason == "version_status_not_installable":
-        return f"Project exists, but compatible versions are not listed/installable."
+        return "Project exists, but compatible versions are not listed/installable."
     return f"Project exists, but no installable {loader_label} {minecraft_version} version was found."
 
 
@@ -3013,6 +3356,11 @@ def _write_agent_report(report: AgentPackReport, output_dir: Path) -> None:
         "## Build Result",
         f"- Selected mods: {len(report.selected_mods)}",
         f"- Artifacts: {len(report.generated_artifacts)}",
+        "",
+        "## Final artifact validation",
+        f"- Status: {report.final_artifact_validation_status or 'not_run'}",
+        f"- Report: {report.final_artifact_validation_report_path or 'n/a'}",
+        f"- Summary: {report.final_artifact_validation_summary or 'n/a'}",
         "",
         "## Launch Validation",
         f"- Status: {report.validation_status or 'not_run'}",

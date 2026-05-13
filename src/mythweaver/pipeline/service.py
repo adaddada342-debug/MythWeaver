@@ -19,12 +19,11 @@ from mythweaver.pipeline.performance import build_performance_foundation_plan
 from mythweaver.pipeline.profile import profile_from_prompt
 from mythweaver.pipeline.reports import write_generation_reports
 from mythweaver.pipeline.sanitizer import sanitize_candidates_for_profile
-from mythweaver.pipeline.selection import PERFORMANCE_MINIMUM_CAPABILITIES, is_novelty_candidate, select_candidates
+from mythweaver.pipeline.selection import is_novelty_candidate, select_candidates
 from mythweaver.pipeline.strategy import build_search_strategy
 from mythweaver.schemas.contracts import (
     CandidateMod,
     ConfidenceScores,
-    GenerationPlan,
     GenerationReport,
     GenerationRequest,
     PerformanceFoundationReport,

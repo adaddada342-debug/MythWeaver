@@ -55,7 +55,7 @@ class ModrinthLauncherAdapter:
                     "# Modrinth App import instructions",
                     "",
                     "MythWeaver did not use an undocumented Modrinth App import API.",
-                    f"1. Open Modrinth App.",
+                    "1. Open Modrinth App.",
                     f"2. Import `{pack_artifact}`.",
                     f"3. Name the instance `{instance_name}`.",
                     f"4. Confirm Minecraft `{minecraft_version}` with `{loader}` loader"

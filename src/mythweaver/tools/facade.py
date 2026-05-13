@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from mythweaver.builders.downloader import download_mod_file
 from mythweaver.builders.mrpack import build_mrpack
@@ -47,6 +48,8 @@ class AgentToolFacade:
             user_agent=self.settings.modrinth_user_agent,
             cache=self.cache,
         )
+        self.last_final_artifact_validation_report: dict[str, Any] | None = None
+        self.last_final_artifact_validation_ok: bool = True
 
     def list_tools(self) -> list[dict[str, str]]:
         return [
@@ -311,6 +314,12 @@ class AgentToolFacade:
         force: bool = False,
         loader_version: str | None = None,
         memory_mb: int | None = None,
+        sources: list[str] | None = None,
+        target_export: str | None = None,
+        auto_target: bool = False,
+        candidate_versions: list[str] | None = None,
+        candidate_loaders: list[str] | None = None,
+        allow_manual_sources: bool = False,
     ):
         return await self.agent_service().build_from_list(
             selected,
@@ -320,6 +329,12 @@ class AgentToolFacade:
             force=force,
             loader_version=loader_version,
             memory_mb=memory_mb,
+            sources=sources,
+            target_export=target_export,
+            auto_target=auto_target,
+            candidate_versions=candidate_versions,
+            candidate_loaders=candidate_loaders,
+            allow_manual_sources=allow_manual_sources,
         )
 
     async def export_pack(self, selected: SelectedModList, output_dir: Path, *, download: bool = True, validate_launch: bool = False, force: bool = False):
@@ -434,9 +449,19 @@ class AgentToolFacade:
         *,
         download: bool = True,
         memory_mb: int | None = None,
+        artifact_prefer_project_ids: frozenset[str] | None = None,
     ) -> list[BuildArtifact]:
+        from mythweaver.validation.final_artifact_validation import validate_and_filter_resolved_pack, write_final_report
+
         output_dir.mkdir(parents=True, exist_ok=True)
-        artifacts = [build_mrpack(pack, output_dir / f"{_slug(pack.name)}.mrpack")]
+        self.last_final_artifact_validation_ok = True
+        self.last_final_artifact_validation_report = None
+
+        artifact_report_path = output_dir / "final_artifact_validation_report.json"
+
+        export_pack = pack
+        export_downloaded: dict[str, Path] | None = None
+
         if download:
             downloaded_files: dict[str, Path] = {}
             cache_root = output_dir / "cache" / "mods"
@@ -448,14 +473,52 @@ class AgentToolFacade:
                     destination,
                     self.settings.modrinth_user_agent,
                 )
+            export_pack, filtered_files, art_report, art_ok = validate_and_filter_resolved_pack(
+                pack,
+                downloaded_files,
+                prefer_project_ids=artifact_prefer_project_ids or frozenset(),
+                target_minecraft=pack.minecraft_version,
+            )
+            self.last_final_artifact_validation_report = art_report
+            self.last_final_artifact_validation_ok = art_ok and art_report.get("status") != "failed"
+            write_final_report(artifact_report_path, art_report)
+
+            if not self.last_final_artifact_validation_ok:
+                vr = BuildArtifact(
+                    kind="final-artifact-validation-report",
+                    path=str(artifact_report_path),
+                    metadata={"status": "failed"},
+                )
+                return [vr]
+
+            export_downloaded = filtered_files
+        else:
+            skipped_report = {
+                "status": "skipped",
+                "detail": "download_disabled_no_jars_to_validate",
+                "final_mod_count": len(pack.selected_mods),
+            }
+            write_final_report(artifact_report_path, skipped_report)
+            self.last_final_artifact_validation_report = skipped_report
+
+        artifacts: list[BuildArtifact] = [build_mrpack(export_pack, output_dir / f"{_slug(pack.name)}.mrpack")]
+        if download and export_downloaded is not None:
             artifacts.append(
                 build_prism_instance(
-                    pack,
+                    export_pack,
                     output_dir / "instances",
-                    downloaded_files=downloaded_files,
+                    downloaded_files=export_downloaded,
                     memory_mb=memory_mb,
                 )
             )
+        artifacts.insert(
+            0,
+            BuildArtifact(
+                kind="final-artifact-validation-report",
+                path=str(artifact_report_path),
+                metadata={"status": (self.last_final_artifact_validation_report or {}).get("status") or ("skipped" if not download else "passed")},
+            ),
+        )
         return artifacts
 
     def generate_configs(self, profile: RequirementProfile, output_dir: Path) -> BuildArtifact:

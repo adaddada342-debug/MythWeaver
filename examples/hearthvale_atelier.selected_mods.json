@@ -1,0 +1,240 @@
+{
+  "name": "Hearthvale Atelier",
+  "summary": "Cozy Fabric 1.20.1 building and homestead pack: warm cottages, village upgrades, farms, kitchens, storage rooms, bridges, gardens, scenic countryside exploration, and shader-ready visuals with Iris.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    {
+      "slug": "fabric-api",
+      "role": "dependency",
+      "reason_selected": "core required API foundation for broad Fabric mod compatibility"
+    },
+    {
+      "slug": "sodium",
+      "role": "shader_support",
+      "reason_selected": "core renderer performance and smooth shader-capable baseline"
+    },
+    {
+      "slug": "iris",
+      "role": "shader_support",
+      "reason_selected": "core mandatory shader support"
+    },
+    {
+      "slug": "indium",
+      "role": "shader_support",
+      "reason_selected": "core Sodium compatibility with Fabric rendering features and decorative mods"
+    },
+    {
+      "slug": "lithium",
+      "role": "foundation",
+      "reason_selected": "core simulation optimization for stable long-term worlds"
+    },
+    {
+      "slug": "ferrite-core",
+      "role": "foundation",
+      "reason_selected": "core memory optimization for larger decorated bases"
+    },
+    {
+      "slug": "modernfix",
+      "role": "foundation",
+      "reason_selected": "core stability and startup performance fixes"
+    },
+    {
+      "slug": "immediatelyfast",
+      "role": "foundation",
+      "reason_selected": "core client rendering speedups"
+    },
+    {
+      "slug": "entityculling",
+      "role": "foundation",
+      "reason_selected": "core reduce off-screen rendering overhead in detailed villages"
+    },
+    {
+      "slug": "modmenu",
+      "role": "utility",
+      "reason_selected": "core settings and mod discoverability"
+    },
+    {
+      "slug": "jade",
+      "role": "utility",
+      "reason_selected": "core in-world block/entity info for building and farming clarity"
+    },
+    {
+      "slug": "emi",
+      "role": "utility",
+      "reason_selected": "core recipe and item lookup for kitchen/workshop loops"
+    },
+    {
+      "slug": "appleskin",
+      "role": "utility",
+      "reason_selected": "core food/saturation visibility for survival comfort"
+    },
+    {
+      "slug": "mouse-tweaks",
+      "role": "utility",
+      "reason_selected": "core inventory interaction quality-of-life"
+    },
+    {
+      "slug": "shulkerboxtooltip",
+      "role": "utility",
+      "reason_selected": "core storage visibility and sorting convenience"
+    },
+    {
+      "slug": "chipped",
+      "role": "theme",
+      "reason_selected": "core extensive block variants for cottages and village detailing"
+    },
+    {
+      "slug": "rechiseled",
+      "role": "theme",
+      "reason_selected": "core decorative masonry and trim variants for interiors and facades"
+    },
+    {
+      "slug": "supplementaries",
+      "role": "theme",
+      "reason_selected": "core functional decor and homestead props"
+    },
+    {
+      "slug": "amendments",
+      "role": "theme",
+      "reason_selected": "core vanilla-friendly decorative enhancements"
+    },
+    {
+      "slug": "another-furniture",
+      "role": "theme",
+      "reason_selected": "core furniture set for cozy interiors"
+    },
+    {
+      "slug": "handcrafted",
+      "role": "theme",
+      "reason_selected": "core complementary furniture and artisan decor"
+    },
+    {
+      "slug": "macaws-bridges",
+      "role": "theme",
+      "reason_selected": "core bridge variety for scenic path networks"
+    },
+    {
+      "slug": "macaws-doors",
+      "role": "theme",
+      "reason_selected": "core cozy door styles for cottages and workshops"
+    },
+    {
+      "slug": "macaws-windows",
+      "role": "theme",
+      "reason_selected": "core warm window styles for village aesthetics"
+    },
+    {
+      "slug": "macaws-roofs",
+      "role": "theme",
+      "reason_selected": "core roof pieces for cottage silhouettes"
+    },
+    {
+      "slug": "macaws-fences-and-walls",
+      "role": "theme",
+      "reason_selected": "core garden, farm, and lane boundary detailing"
+    },
+    {
+      "slug": "farmers-delight-refabricated",
+      "role": "theme",
+      "reason_selected": "core farming and cozy cooking gameplay anchor"
+    },
+    {
+      "slug": "more-delight",
+      "role": "optional",
+      "reason_selected": "optional recipe breadth extension for kitchen progression",
+      "required": false
+    },
+    {
+      "slug": "toms-storage",
+      "role": "utility",
+      "reason_selected": "core practical storage-room progression without heavy tech"
+    },
+    {
+      "slug": "travelersbackpack",
+      "role": "utility",
+      "reason_selected": "core mobile storage for resource gathering trips"
+    },
+    {
+      "slug": "waystones",
+      "role": "utility",
+      "reason_selected": "core moderate travel convenience between home and build sites"
+    },
+    {
+      "slug": "xaeros-minimap",
+      "role": "utility",
+      "reason_selected": "core local orientation while scouting locations"
+    },
+    {
+      "slug": "xaeros-world-map",
+      "role": "utility",
+      "reason_selected": "core macro planning for scenic expansion"
+    },
+    {
+      "slug": "natures-compass",
+      "role": "utility",
+      "reason_selected": "core targeted biome discovery for themed building areas"
+    },
+    {
+      "slug": "comforts",
+      "role": "optional",
+      "reason_selected": "optional quality-of-life sleeping bag utility during expeditions",
+      "required": false
+    },
+    {
+      "slug": "terralith",
+      "role": "theme",
+      "reason_selected": "core scenic terrain for countryside and village builds"
+    },
+    {
+      "slug": "ct-overhaul-village",
+      "role": "theme",
+      "reason_selected": "core village destinations for renovation and homestead expansion"
+    },
+    {
+      "slug": "explorify",
+      "role": "theme",
+      "reason_selected": "core gentle structure discovery supporting relaxed exploration"
+    },
+    {
+      "slug": "repurposed-structures-fabric",
+      "role": "theme",
+      "reason_selected": "core additional vanilla-style structures for builder exploration"
+    },
+    {
+      "slug": "naturalist",
+      "role": "theme",
+      "reason_selected": "core wildlife ambience for living countryside atmosphere"
+    },
+    {
+      "slug": "visuality",
+      "role": "theme",
+      "reason_selected": "core visual polish for cozy environments"
+    },
+    {
+      "slug": "ambientsounds",
+      "role": "theme",
+      "reason_selected": "core ambient soundscape for immersive homestead sessions"
+    },
+    {
+      "slug": "sound-physics-remastered",
+      "role": "theme",
+      "reason_selected": "core spatial audio depth in interiors and caves"
+    },
+    {
+      "slug": "presence-footsteps",
+      "role": "optional",
+      "reason_selected": "optional tactile movement ambience for paths and interiors",
+      "required": false
+    },
+    {
+      "slug": "continuity",
+      "role": "theme",
+      "reason_selected": "core connected textures and polished block rendering with Sodium/Iris"
+    }
+  ],
+  "shader_recommendations": [
+    "Iris-compatible light-to-medium cozy shaderpack (manual install if safe auto-acquisition unavailable)"
+  ],
+  "notes": "Iris and Sodium are mandatory core visual foundation. Optional mods are marked required=false and are first candidates for stabilization trimming if runtime issues occur."
+}

@@ -1394,6 +1394,130 @@
         "azurelib",
         "hwg"
       ]
+    },
+    {
+      "build_timestamp": "2026-05-09T13:48:36.901986+00:00",
+      "crash_classification": "entrypoint_failure",
+      "failed_stage": "runtime_launch",
+      "loader": "fabric",
+      "log_paths": [
+        "C:\\MythWeaver\\output\\test-stabilize-manual\\crash-reports\\crash.txt"
+      ],
+      "minecraft_version": "1.20.1",
+      "mods": [
+        "emi",
+        "hwg",
+        "inventory-profiles-next",
+        "libipn",
+        "mouse-tweaks",
+        "sodium"
+      ],
+      "pack_name": "Runtime Pack",
+      "suggested_fixes": [
+        "Remove, replace, or repair hwg before treating the pack as playable.",
+        "Check for a dependency version mismatch or an unsupported runtime dependency.",
+        "Remove/replace Happiness is a Warm Gun.",
+        "Pin exact AzureLib version required by HWG only if known.",
+        "Avoid manual CurseForge-only dependency patching for automated Modrinth-first packs.",
+        "Use a Modrinth-compatible replacement that does not require manual dependency patching."
+      ],
+      "suspected_mods": [
+        "azurelib",
+        "hwg"
+      ]
+    },
+    {
+      "build_timestamp": "2026-05-09T13:48:39.332464+00:00",
+      "crash_classification": "entrypoint_failure",
+      "failed_stage": "runtime_launch",
+      "loader": "fabric",
+      "log_paths": [
+        "C:\\MythWeaver\\output\\test-stabilize-manual\\crash-reports\\crash.txt"
+      ],
+      "minecraft_version": "1.20.1",
+      "mods": [
+        "emi",
+        "hwg",
+        "inventory-profiles-next",
+        "libipn",
+        "mouse-tweaks",
+        "sodium"
+      ],
+      "pack_name": "Runtime Pack",
+      "suggested_fixes": [
+        "Remove, replace, or repair hwg before treating the pack as playable.",
+        "Check for a dependency version mismatch or an unsupported runtime dependency.",
+        "Remove/replace Happiness is a Warm Gun.",
+        "Pin exact AzureLib version required by HWG only if known.",
+        "Avoid manual CurseForge-only dependency patching for automated Modrinth-first packs.",
+        "Use a Modrinth-compatible replacement that does not require manual dependency patching."
+      ],
+      "suspected_mods": [
+        "azurelib",
+        "hwg"
+      ]
+    },
+    {
+      "build_timestamp": "2026-05-09T13:48:52.578865+00:00",
+      "crash_classification": "entrypoint_failure",
+      "failed_stage": "runtime_launch",
+      "loader": "fabric",
+      "log_paths": [
+        "C:\\MythWeaver\\output\\test-stabilize-manual\\crash-reports\\crash.txt"
+      ],
+      "minecraft_version": "1.20.1",
+      "mods": [
+        "emi",
+        "hwg",
+        "inventory-profiles-next",
+        "libipn",
+        "mouse-tweaks",
+        "sodium"
+      ],
+      "pack_name": "Runtime Pack",
+      "suggested_fixes": [
+        "Remove, replace, or repair hwg before treating the pack as playable.",
+        "Check for a dependency version mismatch or an unsupported runtime dependency.",
+        "Remove/replace Happiness is a Warm Gun.",
+        "Pin exact AzureLib version required by HWG only if known.",
+        "Avoid manual CurseForge-only dependency patching for automated Modrinth-first packs.",
+        "Use a Modrinth-compatible replacement that does not require manual dependency patching."
+      ],
+      "suspected_mods": [
+        "azurelib",
+        "hwg"
+      ]
+    },
+    {
+      "build_timestamp": "2026-05-09T13:48:54.269129+00:00",
+      "crash_classification": "entrypoint_failure",
+      "failed_stage": "runtime_launch",
+      "loader": "fabric",
+      "log_paths": [
+        "C:\\MythWeaver\\output\\test-stabilize-manual\\crash-reports\\crash.txt"
+      ],
+      "minecraft_version": "1.20.1",
+      "mods": [
+        "emi",
+        "hwg",
+        "inventory-profiles-next",
+        "libipn",
+        "mouse-tweaks",
+        "sodium"
+      ],
+      "pack_name": "Runtime Pack",
+      "suggested_fixes": [
+        "Remove, replace, or repair hwg before treating the pack as playable.",
+        "Check for a dependency version mismatch or an unsupported runtime dependency.",
+        "Remove/replace Happiness is a Warm Gun.",
+        "Pin exact AzureLib version required by HWG only if known.",
+        "Avoid manual CurseForge-only dependency patching for automated Modrinth-first packs.",
+        "Use a Modrinth-compatible replacement that does not require manual dependency patching."
+      ],
+      "suspected_mods": [
+        "azurelib",
+        "hwg"
+      ]
     }
   ],
   "repair_attempts": [
@@ -5286,12 +5410,236 @@
       "pack_name": "Repair Pack",
       "suspected_mods": [],
       "timestamp": "2026-05-09T09:28:47.395710+00:00"
+    },
+    {
+      "crash_classification": "mixin_failure",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001",
+        "repair_002"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [
+        "sodium"
+      ],
+      "timestamp": "2026-05-09T13:48:36.166434+00:00"
+    },
+    {
+      "action_type": "remove_mod",
+      "event": "repair_option_applied",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_id": "repair_001",
+      "pack_name": "Repair Pack",
+      "target_slug": "iris",
+      "timestamp": "2026-05-09T13:48:37.304083+00:00"
+    },
+    {
+      "action_type": "replace_mod",
+      "event": "repair_option_applied",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_id": "repair_replace",
+      "pack_name": "Repair Pack",
+      "target_slug": "iris",
+      "timestamp": "2026-05-09T13:48:37.344560+00:00"
+    },
+    {
+      "action_type": "add_missing_dependency",
+      "event": "repair_option_applied",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_id": "repair_dependency",
+      "pack_name": "Repair Pack",
+      "target_slug": "library-b",
+      "timestamp": "2026-05-09T13:48:37.369749+00:00"
+    },
+    {
+      "crash_classification": "duplicate_mod",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [
+        "sodium"
+      ],
+      "timestamp": "2026-05-09T13:48:37.501307+00:00"
+    },
+    {
+      "crash_classification": "java_mismatch",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [],
+      "timestamp": "2026-05-09T13:48:37.554609+00:00"
+    },
+    {
+      "crash_classification": "missing_dependency",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [
+        "library-b"
+      ],
+      "timestamp": "2026-05-09T13:48:37.599608+00:00"
+    },
+    {
+      "crash_classification": "mixin_failure",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001",
+        "repair_002"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [
+        "sodium"
+      ],
+      "timestamp": "2026-05-09T13:48:37.645296+00:00"
+    },
+    {
+      "crash_classification": "unknown",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [],
+      "timestamp": "2026-05-09T13:48:37.698743+00:00"
+    },
+    {
+      "crash_classification": "mixin_failure",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001",
+        "repair_002"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [
+        "sodium"
+      ],
+      "timestamp": "2026-05-09T13:48:52.037480+00:00"
+    },
+    {
+      "action_type": "remove_mod",
+      "event": "repair_option_applied",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_id": "repair_001",
+      "pack_name": "Repair Pack",
+      "target_slug": "iris",
+      "timestamp": "2026-05-09T13:48:52.894959+00:00"
+    },
+    {
+      "action_type": "replace_mod",
+      "event": "repair_option_applied",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_id": "repair_replace",
+      "pack_name": "Repair Pack",
+      "target_slug": "iris",
+      "timestamp": "2026-05-09T13:48:52.928522+00:00"
+    },
+    {
+      "action_type": "add_missing_dependency",
+      "event": "repair_option_applied",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_id": "repair_dependency",
+      "pack_name": "Repair Pack",
+      "target_slug": "library-b",
+      "timestamp": "2026-05-09T13:48:52.952402+00:00"
+    },
+    {
+      "crash_classification": "duplicate_mod",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [
+        "sodium"
+      ],
+      "timestamp": "2026-05-09T13:48:53.046941+00:00"
+    },
+    {
+      "crash_classification": "java_mismatch",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [],
+      "timestamp": "2026-05-09T13:48:53.085893+00:00"
+    },
+    {
+      "crash_classification": "missing_dependency",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [
+        "library-b"
+      ],
+      "timestamp": "2026-05-09T13:48:53.126620+00:00"
+    },
+    {
+      "crash_classification": "mixin_failure",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001",
+        "repair_002"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [
+        "sodium"
+      ],
+      "timestamp": "2026-05-09T13:48:53.174850+00:00"
+    },
+    {
+      "crash_classification": "unknown",
+      "event": "repair_options_generated",
+      "loader": "fabric",
+      "minecraft_version": "1.20.1",
+      "option_ids": [
+        "repair_001"
+      ],
+      "pack_name": "Repair Pack",
+      "suspected_mods": [],
+      "timestamp": "2026-05-09T13:48:53.202858+00:00"
     }
   ],
   "signals": {
     "crash_suspect_count": {
-      "azurelib": 45,
-      "hwg": 45
+      "azurelib": 49,
+      "hwg": 49
     },
     "dependency_chain_success": [],
     "known_bad_together": [
@@ -6230,6 +6578,114 @@
           "azurelib",
           "hwg"
         ]
+      },
+      {
+        "classification": "entrypoint_failure",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "azurelib",
+          "hwg"
+        ]
+      },
+      {
+        "classification": "mixin_failure",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "sodium"
+        ],
+        "source": "repair_plan"
+      },
+      {
+        "classification": "entrypoint_failure",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "azurelib",
+          "hwg"
+        ]
+      },
+      {
+        "classification": "duplicate_mod",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "sodium"
+        ],
+        "source": "repair_plan"
+      },
+      {
+        "classification": "missing_dependency",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "library-b"
+        ],
+        "source": "repair_plan"
+      },
+      {
+        "classification": "mixin_failure",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "sodium"
+        ],
+        "source": "repair_plan"
+      },
+      {
+        "classification": "entrypoint_failure",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "azurelib",
+          "hwg"
+        ]
+      },
+      {
+        "classification": "mixin_failure",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "sodium"
+        ],
+        "source": "repair_plan"
+      },
+      {
+        "classification": "entrypoint_failure",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "azurelib",
+          "hwg"
+        ]
+      },
+      {
+        "classification": "duplicate_mod",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "sodium"
+        ],
+        "source": "repair_plan"
+      },
+      {
+        "classification": "missing_dependency",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "library-b"
+        ],
+        "source": "repair_plan"
+      },
+      {
+        "classification": "mixin_failure",
+        "loader": "fabric",
+        "minecraft_version": "1.20.1",
+        "mods": [
+          "sodium"
+        ],
+        "source": "repair_plan"
       },
       {
         "classification": "entrypoint_failure",

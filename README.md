@@ -104,9 +104,9 @@ required dependencies, and known critical conflicts must be fixed before build/e
 MythWeaver separates source acquisition from loader compatibility. Modrinth remains the default
 automated source. CurseForge is supported only through the official API via `CURSEFORGE_API_KEY`;
 MythWeaver does not scrape CurseForge pages. Local jar files can be inspected when they have
-verifiable metadata and hashes. GitHub Releases, Planet Minecraft, and direct URLs are conservative
-sources: they are manual, discovery-only, or risky unless version, loader, dependency, permission,
-download, and hash metadata can be proven.
+verifiable metadata and hashes. Planet Minecraft is manual discovery only. Direct URLs are blocked
+by default. GitHub Releases become automatic only when a release asset has proven version, loader,
+download, and hash metadata.
 
 Use `source-resolve` before autonomous builds when a selected list uses anything beyond ordinary
 Modrinth refs:
@@ -122,6 +122,37 @@ Autonomous mode accepts only `verified_auto` source candidates by default. `manu
 surfaced to Cursor/Codex through reports instead of being silently trusted. A local or Prism
 instance can use more verified local files than a redistributable `.mrpack`; Modrinth pack export is
 kept stricter because external source redistribution and launcher behavior may be limited.
+
+`Any Minecraft version / loader` means MythWeaver negotiates the best supported target from real
+metadata. It does not make incompatible mods compatible. Modrinth `.mrpack`, CurseForge manifest,
+Prism instance, and local instance exports are different targets with different legal and technical
+constraints.
+
+Current multi-source command examples:
+
+```powershell
+python -m mythweaver.cli.main source-search "magic" --mc-version 1.20.1 --loader forge --sources modrinth,curseforge
+python -m mythweaver.cli.main source-resolve selected_mods.json --sources modrinth,curseforge --target-export curseforge_manifest
+python -m mythweaver.cli.main build-from-list selected_mods.json --sources curseforge --target-export curseforge_manifest --loader-version 47.2.0
+python -m mythweaver.cli.main build-from-list selected_mods.json --sources modrinth,curseforge --auto-target --target-export prism_instance
+```
+
+## Example pack: MythWeaver Forever World
+
+The repo ships a **vanilla-friendly “forever world”** design target under
+`output/generated/mythweaver-forever-world/`: curated `selected_mods.json` (Fabric **1.20.1**),
+`pack_design.json`, farming matrix, lore bible, config notes, and a MythWeaver validation playbook.
+Start from the pack README:
+
+- `output/generated/mythweaver-forever-world/README.md`
+
+Typical commands:
+
+```powershell
+python -m mythweaver.cli.main verify-list output/generated/mythweaver-forever-world/selected_mods.json
+python -m mythweaver.cli.main build-from-list output/generated/mythweaver-forever-world/selected_mods.json --output output/generated/mythweaver-forever-world --dry-run
+python -m mythweaver.cli.main build-from-list output/generated/mythweaver-forever-world/selected_mods.json --output output/generated/mythweaver-forever-world
+```
 
 ## Runtime stabilization
 
@@ -141,6 +172,51 @@ python -m mythweaver.cli.main launch-check selected_mods.json --pack-dir output/
 python -m mythweaver.cli.main analyze-crash crash-report.txt --against selected_mods.json
 python -m mythweaver.cli.main stabilize-pack selected_mods.json --against output/generated/<pack>/pack_design.json --manual-crash-report crash-report.txt
 ```
+
+## MythWeaver Autopilot
+
+Autopilot is MythWeaver's private build -> runtime validation -> diagnosis -> safe repair loop. It
+does not use a public launcher UI, Microsoft auth, server joins, direct URL trust, or page scraping.
+It builds an isolated runtime copy from files that already satisfy the `local_instance` source
+policy, launches through the private runtime harness when the environment is complete, classifies
+failures deterministically, and applies only safe automatic repairs such as inferred missing
+dependency additions.
+
+V1 prioritizes the tested autonomous loop over universal real-world launch coverage. Fabric runtime
+preparation is fixture-tested and implemented as far as practical through Mojang and Fabric official
+metadata. Forge, NeoForge, and Quilt return `unsupported_loader_runtime` in the private runtime path.
+If Java, metadata, assets, or runtime launch support is incomplete on a machine, Autopilot returns a
+blocked/failed report instead of claiming the pack is playable.
+
+Autopilot Phase 2 requires MythWeaver smoke-test proof by default. `verified_playable` means the
+private Fabric validation instance observed the required smoke-test markers, including world join
+and the configured stability window, with no later crash or non-zero process exit. Client start,
+main menu, sound engine, or narrator log lines are weaker evidence and do not count as playable proof
+unless you explicitly disable smoke-test proof for a manual diagnostic run.
+
+```powershell
+python -m mythweaver.cli.main autopilot selected_mods.json --sources modrinth,curseforge --target-export local_instance --minecraft-version auto --loader auto
+python -m mythweaver.cli.main autopilot selected_mods.json --sources modrinth --minecraft-version 1.20.1 --loader fabric --json
+python -m mythweaver.cli.main autopilot selected_mods.json --sources modrinth --loader fabric --smoke-test-helper-path resources/mythweaver-smoketest.jar --minimum-stability-seconds 60
+```
+
+`--json` emits the full `AutopilotReport`. Without `--json`, the CLI prints the final target,
+proof level, smoke-test helper usage, stability seconds, attempts, applied repairs, and final
+isolated instance path. Autopilot never mutates the original `selected_mods.json`; it writes
+generated reports and working artifacts under the output root. Proof controls are
+`--inject-smoke-test/--no-inject-smoke-test`, `--smoke-test-helper-path`,
+`--require-smoke-test-proof/--no-require-smoke-test-proof`, and
+`--minimum-stability-seconds`; the defaults are inject=true, require=true, stability=60.
+
+When strict proof fails, Autopilot now records structured runtime diagnoses such as missing Fabric
+API, wrong loader, Java incompatibility, mixin failure, duplicate mod id, config parse error, access
+widener failure, missing class, side mismatch, or unknown runtime failure. Only evidence-backed
+missing dependency diagnoses can become automatic `add_mod` repairs through the trusted source
+resolver. Wrong loader, severe mixin failures, Java changes, direct URLs, and unknown failures remain
+manual/blocked.
+
+For an opt-in local real-launch walkthrough, see `docs/autopilot-smoke-test.md`. The normal test
+suite stays offline and fixture-based.
 
 ## Runtime proof and smoke testing
 

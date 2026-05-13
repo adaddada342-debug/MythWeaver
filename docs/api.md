@@ -44,12 +44,72 @@ Runs verification, hydrates required dependency metadata, distinguishes `user_se
 
 ## `build_from_list` / `export_pack`
 
-Input: `SelectedModList`, output directory, `download`, optional `validate_launch`
+Input: `SelectedModList`, output directory, `download`, optional `validate_launch`, and optional
+source-aware fields `sources`, `target_export`, `auto_target`, `candidate_versions`,
+`candidate_loaders`, and `allow_manual_sources`.
 
 Verifies, resolves dependencies, downloads when requested, writes `.mrpack` and Prism artifacts, and
 writes `generation_report.json` / `generation_report.md` for the agent to inspect. When
 `validate_launch=true`, launch validation runs only if Prism is configured and validation is enabled.
 Otherwise the report records a skipped validation state.
+
+When source-aware fields are supplied, MythWeaver uses `source_resolve` and target policy. A
+CurseForge manifest can be exported from official CurseForge projectID/fileID metadata without a
+direct download URL. A Prism/local instance still requires automatic download or local file hashes.
+Modrinth `.mrpack` refuses CurseForge/local/direct/manual files.
+
+## `autopilot`
+
+Input: `AutopilotRequest` or the CLI command
+`python -m mythweaver.cli.main autopilot selected_mods.json`.
+
+Runs the autonomous V1 loop: target resolution, source resolution for `local_instance`, isolated
+runtime file build, private runtime validation, deterministic issue classification, safe repair
+planning, and retry. The output is an `AutopilotReport` with status
+`verified_playable`, `blocked`, `max_attempts_reached`, or `failed`.
+
+Autopilot never mutates the original `selected_mods.json`, never treats manual-only or direct URL
+sources as trusted runtime jars, and never applies manual or dangerous repair actions automatically.
+Fabric is the only private runtime loader in V1. Forge, NeoForge, and Quilt produce
+`unsupported_loader_runtime` rather than fake launch success.
+
+Phase 2 proof is strict by default: `verified_playable` requires `RuntimeProof.required_markers_met`
+with MythWeaver smoke-test markers for `CLIENT_READY`, `SERVER_STARTED`, `PLAYER_JOINED_WORLD`, and
+the configured stability marker, defaulting to `STABLE_60_SECONDS`. Weak client/main-menu signals
+are recorded as lower proof levels, but do not make an Autopilot report playable unless smoke-test
+proof is explicitly disabled for diagnostics. Runtime reports include bounded evidence paths,
+marker summaries, smoke-test helper usage, and the final proof level.
+
+Failed runtime reports include `diagnoses`, a list of structured runtime failure diagnoses with
+kind, confidence, summary, evidence, blocking status, affected mod ids/files, and suggested repair
+action kinds. The safe automatic repair planner only applies supported safe diagnoses, currently
+trusted missing dependency additions. Loader mismatches, Java incompatibility, severe mixin failures,
+environment mismatches, and unknown failures remain manual review items.
+
+Manual real-launch guidance lives in `docs/autopilot-smoke-test.md`; API and unit tests remain
+offline/fixture-based.
+
+## `source_search`
+
+Input: query, Minecraft version, loader, sources, and limit.
+
+Searches configured source providers. Modrinth and CurseForge use official APIs. Planet Minecraft
+and direct URLs do not become installable just because a page or URL exists.
+
+## `source_resolve`
+
+Input: `SelectedModList`, sources, target export, and manual-source policy.
+
+Returns `selected_files`, `manifest_files`, `manual_required`, `blocked`, `export_supported`, and
+`export_blockers`. `manual_required` is explicit; MythWeaver does not turn incomplete metadata into
+fake success.
+
+## Target Negotiation
+
+`--auto-target` evaluates candidate Minecraft versions and loaders when the selected list requests
+`auto` or `any`. Ranking prefers verified coverage, dependency closure, fewer manual sources,
+release files, modern stable versions, and export compatibility. It does not make incompatible mods
+compatible.
 
 Reports include launch validation and advisory local memory fields:
 

@@ -125,7 +125,7 @@ class PrismLauncherAdapter:
                     "# Prism Launcher import instructions",
                     "",
                     "MythWeaver did not find enough local Prism configuration to safely create an instance directly.",
-                    f"1. Open Prism Launcher.",
+                    "1. Open Prism Launcher.",
                     f"2. Add Instance -> Import from zip -> choose `{pack_artifact}`.",
                     f"3. Name the instance `{instance_name}`.",
                     f"4. Confirm Minecraft `{minecraft_version}` and `{loader}` loader"

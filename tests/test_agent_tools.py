@@ -36,8 +36,11 @@ class AgentToolFacadeTests(unittest.TestCase):
 
         artifacts = asyncio.run(facade.build_pack(pack, output_dir, download=False))
 
-        self.assertEqual(artifacts[0].kind, "mrpack")
-        self.assertTrue(Path(artifacts[0].path).is_file())
+        mrpack = next(a for a in artifacts if a.kind == "mrpack")
+        self.assertTrue(Path(mrpack.path).is_file())
+        report = next(a for a in artifacts if a.kind == "final-artifact-validation-report")
+        self.assertEqual(report.metadata.get("status"), "skipped")
+        self.assertTrue(Path(report.path).is_file())
 
 
 if __name__ == "__main__":

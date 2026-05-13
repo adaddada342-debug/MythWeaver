@@ -20,6 +20,19 @@ def _evidence(log_text: str, patterns: list[str]) -> list[str]:
 def analyze_failure(log_text: str) -> FailureAnalysis:
     lower = log_text.lower()
 
+    if "some of your mods are incompatible" in lower or "incompatible mods found" in lower:
+        return FailureAnalysis(
+            classification="final_artifact_invalid",
+            summary="Fabric Loader reported a mass mod incompatibility (often duplicate Fabric mod IDs or wrong-edition jars).",
+            evidence=_evidence(log_text, ["incompatible", "mods", "remove", "fabric"]),
+            repair_candidates=[
+                "Run MythWeaver build_from_list with downloads enabled and inspect final_artifact_validation_report.json.",
+                "Remove duplicate Fabric mod IDs (same id in multiple jars) and jars whose fabric.mod.json excludes this Minecraft version.",
+                "Re-resolve dependencies so optional duplicates are not both exported.",
+            ],
+            likely_causes=["duplicate_mod_ids", "wrong_minecraft_version_jars", "invalid_dependency_closure"],
+        )
+
     if "requires" in lower and ("install" in lower or "dependency" in lower or "depends" in lower):
         return FailureAnalysis(
             classification="missing_dependency",

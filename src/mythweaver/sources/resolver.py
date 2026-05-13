@@ -1,29 +1,32 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from mythweaver.schemas.contracts import RejectedMod, SelectedModList, SourceDependencyRecord, SourceFileCandidate, SourceResolveReport
+from mythweaver.sources.base import SourceProvider
 from mythweaver.sources.curseforge import CurseForgeSourceProvider
 from mythweaver.sources.direct_url import DirectUrlSourceProvider
 from mythweaver.sources.github import GitHubReleaseSourceProvider
 from mythweaver.sources.local import LocalFileSourceProvider
 from mythweaver.sources.modrinth import ModrinthSourceProvider
 from mythweaver.sources.planetminecraft import PlanetMinecraftSourceProvider
-from mythweaver.sources.policy import evaluate_candidate_policy
+from mythweaver.sources.policy import ExportTarget, evaluate_candidate_policy
 
 
-def provider_for_source(source: str, *, modrinth=None, curseforge_api_key: str | None = None):
+def provider_for_source(source: str, *, modrinth: Any = None, curseforge_api_key: str | None = None) -> SourceProvider:
     normalized = source.strip().lower()
     if normalized in {"auto", "modrinth"}:
-        return ModrinthSourceProvider(modrinth)
+        return cast(SourceProvider, ModrinthSourceProvider(modrinth))
     if normalized == "curseforge":
-        return CurseForgeSourceProvider(api_key=curseforge_api_key)
+        return cast(SourceProvider, CurseForgeSourceProvider(api_key=curseforge_api_key))
     if normalized == "planetminecraft":
-        return PlanetMinecraftSourceProvider()
+        return cast(SourceProvider, PlanetMinecraftSourceProvider())
     if normalized == "local":
-        return LocalFileSourceProvider()
+        return cast(SourceProvider, LocalFileSourceProvider())
     if normalized == "direct_url":
-        return DirectUrlSourceProvider()
+        return cast(SourceProvider, DirectUrlSourceProvider())
     if normalized == "github":
-        return GitHubReleaseSourceProvider()
+        return cast(SourceProvider, GitHubReleaseSourceProvider())
     raise ValueError(f"unknown source: {source}")
 
 
@@ -35,11 +38,12 @@ async def resolve_sources_for_selected_mods(
     sources: list[str],
     target_export: str,
     autonomous: bool,
-    modrinth=None,
+    modrinth: Any = None,
     curseforge_api_key: str | None = None,
     allow_manual_sources: bool = False,
 ) -> SourceResolveReport:
     selected_files: list[SourceFileCandidate] = []
+    manifest_files: list[SourceFileCandidate] = []
     manual_required: list[SourceFileCandidate] = []
     blocked: list[SourceFileCandidate] = []
     unresolved_required_dependencies: list[RejectedMod] = []
@@ -78,7 +82,12 @@ async def resolve_sources_for_selected_mods(
                 )
             )
             continue
-        if candidate.acquisition_status == "verified_auto":
+        if _is_manifest_candidate(candidate, target_export):
+            if _candidate_key(candidate) not in resolved_keys:
+                manifest_files.append(candidate)
+                resolved_keys.add(_candidate_key(candidate))
+                queued_dependencies.extend((dep, candidate.project_id or candidate.slug or candidate.name) for dep in candidate.dependency_records)
+        elif candidate.acquisition_status == "verified_auto":
             if _candidate_key(candidate) not in resolved_keys:
                 selected_files.append(candidate)
                 resolved_keys.add(_candidate_key(candidate))
@@ -156,7 +165,13 @@ async def resolve_sources_for_selected_mods(
                 )
             )
             continue
-        if candidate.acquisition_status == "verified_auto":
+        if _is_manifest_candidate(candidate, target_export):
+            key = _candidate_key(candidate)
+            if key not in resolved_keys:
+                manifest_files.append(candidate)
+                resolved_keys.add(key)
+                queued_dependencies.extend((dep, candidate.project_id or candidate.slug or candidate.name) for dep in candidate.dependency_records)
+        elif candidate.acquisition_status == "verified_auto":
             key = _candidate_key(candidate)
             if key not in resolved_keys:
                 selected_files.append(candidate)
@@ -175,20 +190,37 @@ async def resolve_sources_for_selected_mods(
                 )
             )
 
-    transitive_dependency_count = max(0, len(selected_files) - len(selected.mods))
+    installable_files = selected_files + manifest_files
+    transitive_dependency_count = max(0, len(installable_files) - len(selected.mods))
     source_breakdown: dict[str, int] = {}
-    for candidate in selected_files:
+    for candidate in installable_files:
         source_breakdown[candidate.source] = source_breakdown.get(candidate.source, 0) + 1
-    closure_passed = not unresolved_required_dependencies and not manually_required_dependencies and not blocked and not manual_required
-    status = "resolved" if selected_files and closure_passed else ("partial" if selected_files or manual_required else "failed")
+    export_blockers = _export_blockers(
+        target_export=target_export,
+        selected_files=selected_files,
+        manifest_files=manifest_files,
+        manual_required=manual_required,
+        blocked=blocked,
+        unresolved_required_dependencies=unresolved_required_dependencies,
+    )
+    closure_passed = not unresolved_required_dependencies and not blocked and not manual_required
+    export_supported = not export_blockers and bool(installable_files)
+    status = "resolved" if installable_files and closure_passed and export_supported else ("partial" if installable_files or manual_required else "failed")
     return SourceResolveReport(
-        status=status,
+        status=cast(Any, status),
         minecraft_version=minecraft_version,
         loader=loader,
         selected_files=selected_files,
+        manifest_files=manifest_files,
         manual_required=manual_required,
         blocked=blocked,
         warnings=warnings,
+        required_count=len(selected.mods),
+        missing_count=len(unresolved_required_dependencies),
+        unsupported_count=len(blocked),
+        manual_required_count=len(manual_required) + len(manually_required_dependencies),
+        export_supported=export_supported,
+        export_blockers=export_blockers,
         unresolved_required_dependencies=unresolved_required_dependencies,
         manually_required_dependencies=manually_required_dependencies,
         optional_dependencies=optional_dependencies,
@@ -208,7 +240,7 @@ async def _resolve_candidate(
     loader: str,
     target_export: str,
     autonomous: bool,
-    modrinth,
+    modrinth: Any,
     curseforge_api_key: str | None,
     allow_manual_sources: bool,
     warnings: list[str],
@@ -226,7 +258,7 @@ async def _resolve_candidate(
         if candidate:
             return evaluate_candidate_policy(
                 candidate,
-                target_export=target_export,
+                target_export=cast(ExportTarget, target_export),
                 autonomous=autonomous and not allow_manual_sources,
             )
     return None
@@ -246,3 +278,37 @@ def _dependency_source_order(dependency: SourceDependencyRecord, source_order: l
     if dependency.source in source_order:
         return [dependency.source, *[source for source in source_order if source != dependency.source]]
     return source_order
+
+
+def _is_manifest_candidate(candidate: SourceFileCandidate, target_export: str) -> bool:
+    return (
+        target_export == "curseforge_manifest"
+        and candidate.source == "curseforge"
+        and bool(candidate.project_id)
+        and bool(candidate.file_id)
+        and candidate.acquisition_status in {"verified_auto", "verified_manual_required"}
+    )
+
+
+def _export_blockers(
+    *,
+    target_export: str,
+    selected_files: list[SourceFileCandidate],
+    manifest_files: list[SourceFileCandidate],
+    manual_required: list[SourceFileCandidate],
+    blocked: list[SourceFileCandidate],
+    unresolved_required_dependencies: list[RejectedMod],
+) -> list[str]:
+    blockers: list[str] = []
+    if blocked:
+        blockers.append(f"{len(blocked)} file(s) blocked by source/export policy.")
+    if unresolved_required_dependencies:
+        blockers.append(f"{len(unresolved_required_dependencies)} required dependency/dependencies unresolved.")
+    if target_export == "curseforge_manifest":
+        if selected_files:
+            blockers.append("CurseForge manifest export cannot include non-manifest files.")
+        if manual_required:
+            blockers.append("Manual files are not CurseForge manifest-eligible.")
+    elif manual_required:
+        blockers.append(f"{len(manual_required)} file(s) require manual acquisition.")
+    return blockers

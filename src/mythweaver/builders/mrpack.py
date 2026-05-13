@@ -5,18 +5,22 @@ import json
 import os
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from mythweaver.builders.paths import safe_file_name, safe_relative_path, safe_slug
+from mythweaver.catalog.loaders import modrinth_loader_category
 from mythweaver.schemas.contracts import BuildArtifact, CandidateMod, ResolvedPack
 
 
 def _loader_dependency_key(loader: str) -> str:
-    if loader == "fabric":
+    normalized = modrinth_loader_category(loader)
+    if not normalized:
+        raise ValueError(f"unsupported Modrinth loader dependency: {loader}")
+    if normalized == "fabric":
         return "fabric-loader"
-    if loader == "quilt":
+    if normalized == "quilt":
         return "quilt-loader"
-    return loader
+    return normalized
 
 
 def _file_entry(mod: CandidateMod) -> dict[str, object]:
@@ -119,4 +123,4 @@ def validate_mrpack_archive(path: Path) -> dict[str, Any]:
         raise ValueError(f"mrpack index missing required fields: {', '.join(sorted(missing))}")
     if index["formatVersion"] != 1 or index["game"] != "minecraft":
         raise ValueError("mrpack index has unsupported formatVersion or game")
-    return index
+    return cast(dict[str, Any], index)

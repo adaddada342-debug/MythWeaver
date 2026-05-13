@@ -1,0 +1,23 @@
+{
+  "name": "Auto Target Any Loader Example",
+  "summary": "Example selected list for target negotiation across Minecraft versions and loaders.",
+  "minecraft_version": "any",
+  "loader": "any",
+  "mods": [
+    {
+      "slug": "sodium",
+      "role": "foundation",
+      "reason_selected": "Performance foundation if Fabric is selected.",
+      "allowed_sources": ["modrinth"]
+    },
+    {
+      "source": "curseforge",
+      "source_slug": "configured",
+      "role": "utility",
+      "reason_selected": "Example CurseForge slug; target matrix must verify compatibility before export.",
+      "allowed_sources": ["curseforge"]
+    }
+  ],
+  "shader_recommendations": [],
+  "notes": "Run build-from-list with --auto-target and explicit candidate versions/loaders for deterministic negotiation."
+}

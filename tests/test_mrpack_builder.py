@@ -7,7 +7,7 @@ from pathlib import Path
 from tests.test_scoring import candidate
 
 
-TEMP_ROOT = Path.cwd() / "output" / "test-mrpack"
+TEMP_ROOT = Path("output") / "test-mrpack"
 
 
 def fresh_case_dir(name: str) -> Path:

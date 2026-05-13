@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from mythweaver.modrinth.client import candidate_from_project_hit
-from mythweaver.schemas.contracts import SearchPlan, SourceDependencyRecord, SourceFileCandidate, SourceSearchResult
+from mythweaver.catalog.loaders import modrinth_loader_category, normalize_loader
+from mythweaver.schemas.contracts import RequestedLoader, SearchPlan, SourceDependencyRecord, SourceFileCandidate, SourceSearchResult
 
 
 class ModrinthSourceProvider:
     source_name = "modrinth"
     trust_tier = "official_api"
 
-    def __init__(self, modrinth) -> None:
+    def __init__(self, modrinth: Any) -> None:
         self.modrinth = modrinth
 
     def is_configured(self) -> bool:
@@ -17,7 +20,7 @@ class ModrinthSourceProvider:
     async def search(self, query: str, *, minecraft_version: str, loader: str, limit: int = 20) -> SourceSearchResult:
         if not self.is_configured():
             return SourceSearchResult(query=query, source=self.source_name, warnings=["Modrinth client is not configured."])
-        plan = SearchPlan(query=query, minecraft_version=minecraft_version, loader=loader, limit=limit)
+        plan = SearchPlan(query=query, minecraft_version=minecraft_version, loader=cast(RequestedLoader, normalize_loader(loader)), limit=limit)
         data = await self.modrinth.search_projects(plan)
         candidates = []
         for hit in data.get("hits", [])[:limit]:
@@ -34,7 +37,8 @@ class ModrinthSourceProvider:
             return None
         try:
             project = await self.modrinth.get_project(project_ref)
-            versions = await self.modrinth.list_project_versions(project_ref, loader=loader, minecraft_version=minecraft_version)
+            loader_category = modrinth_loader_category(loader) or normalize_loader(loader)
+            versions = await self.modrinth.list_project_versions(project_ref, loader=loader_category, minecraft_version=minecraft_version)
         except Exception:
             return None
         if not versions:
@@ -65,7 +69,7 @@ class ModrinthSourceProvider:
         ]
         dependencies = [dep.project_id for dep in dependency_records if dep.project_id]
         verified = (
-            loader in mapped.selected_version.loaders
+            (modrinth_loader_category(loader) or normalize_loader(loader)) in mapped.selected_version.loaders
             and (minecraft_version == "auto" or minecraft_version in mapped.selected_version.game_versions)
             and bool(primary.url)
             and bool(primary.hashes)

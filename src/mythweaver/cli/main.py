@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from mythweaver.api.app import create_app
+from mythweaver.autopilot.contracts import AutopilotRequest
+from mythweaver.autopilot.loop import run_autopilot
 from mythweaver.builders.paths import safe_slug
 from mythweaver.core.settings import get_settings
 from mythweaver.handoff import (
@@ -17,7 +19,7 @@ from mythweaver.handoff import (
     write_agent_workflow_prompt,
 )
 from mythweaver.onboarding import START_MESSAGE, write_agent_session
-from mythweaver.schemas.contracts import GenerationRequest, PackDesign, RequirementProfile, SearchPlan, SelectedModList
+from mythweaver.schemas.contracts import GenerationRequest, PackDesign, RequirementProfile, SelectedModList
 from mythweaver.tools.facade import AgentToolFacade
 
 
@@ -43,6 +45,19 @@ def _add_prism_config_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--launch-timeout-seconds", type=int)
     parser.add_argument("--java-path")
     parser.add_argument("--validation-enabled", action="store_true")
+
+
+def _add_source_build_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--sources", help="Comma-separated source providers, such as modrinth,curseforge,local.")
+    parser.add_argument(
+        "--target-export",
+        choices=["modrinth_pack", "curseforge_manifest", "prism_instance", "local_instance", "multimc_instance"],
+        help="Source-aware export target. Omit to preserve the existing Modrinth-first build path.",
+    )
+    parser.add_argument("--auto-target", action="store_true", help="Negotiate Minecraft version and loader when selected_mods uses auto/any.")
+    parser.add_argument("--candidate-versions", help="Comma-separated Minecraft versions to consider during --auto-target.")
+    parser.add_argument("--candidate-loaders", help="Comma-separated loaders to consider during --auto-target.")
+    parser.add_argument("--allow-manual-sources", action="store_true", help="Allow manual-required source metadata in reports where policy permits it.")
 
 
 def _settings_for_args(args: argparse.Namespace, *, force_validation: bool = False):
@@ -203,6 +218,7 @@ def _fallback_main(argv: list[str] | None = None) -> int:
     build_list.add_argument("--force", action="store_true", help="Allow build/export even when review recommends do_not_build.")
     build_list.add_argument("--loader-version")
     build_list.add_argument("--memory-mb", type=int)
+    _add_source_build_args(build_list)
     _add_prism_config_args(build_list)
 
     agent_pack = subcommands.add_parser("agent-pack", help="Verify, resolve, build/export, and report from a selected list.")
@@ -211,7 +227,35 @@ def _fallback_main(argv: list[str] | None = None) -> int:
     agent_pack.add_argument("--dry-run", action="store_true")
     agent_pack.add_argument("--validate-launch", action="store_true")
     agent_pack.add_argument("--force", action="store_true", help="Allow build/export even when review recommends do_not_build.")
+    agent_pack.add_argument("--loader-version")
+    _add_source_build_args(agent_pack)
     _add_prism_config_args(agent_pack)
+
+    autopilot = subcommands.add_parser("autopilot", help="Run autonomous build, private runtime validation, and safe repair loop.")
+    autopilot.add_argument("selected_mods")
+    autopilot.add_argument("--sources", default="modrinth,curseforge")
+    autopilot.add_argument("--target-export", default="local_instance", choices=["local_instance", "prism_instance"])
+    autopilot.add_argument("--minecraft-version", default="auto")
+    autopilot.add_argument("--loader", default="auto")
+    autopilot.add_argument("--loader-version")
+    autopilot.add_argument("--candidate-versions")
+    autopilot.add_argument("--candidate-loaders")
+    autopilot.add_argument("--max-attempts", type=int, default=5)
+    autopilot.add_argument("--memory-mb", type=int, default=4096)
+    autopilot.add_argument("--timeout-seconds", type=int, default=180)
+    autopilot.add_argument("--output-root")
+    autopilot.add_argument("--java-path")
+    autopilot.add_argument("--inject-smoke-test", action=argparse.BooleanOptionalAction, default=True)
+    autopilot.add_argument("--smoke-test-helper-path")
+    autopilot.add_argument("--require-smoke-test-proof", action=argparse.BooleanOptionalAction, default=True)
+    autopilot.add_argument("--minimum-stability-seconds", type=int, default=60)
+    autopilot.add_argument("--allow-target-switch", action=argparse.BooleanOptionalAction, default=True)
+    autopilot.add_argument("--allow-loader-switch", action=argparse.BooleanOptionalAction, default=True)
+    autopilot.add_argument("--allow-minecraft-version-switch", action=argparse.BooleanOptionalAction, default=True)
+    autopilot.add_argument("--allow-remove-content-mods", action="store_true")
+    autopilot.add_argument("--allow-manual-sources", action="store_true")
+    autopilot.add_argument("--keep-failed-instances", action="store_true")
+    autopilot.add_argument("--json", action="store_true")
 
     validate_pack = subcommands.add_parser("validate-pack", help="Validate a generated pack directory through Prism when configured.")
     validate_pack.add_argument("pack_dir")
@@ -533,6 +577,12 @@ def _fallback_main(argv: list[str] | None = None) -> int:
                         force=args.force,
                         loader_version=args.loader_version,
                         memory_mb=args.memory_mb,
+                        sources=_split_csv(args.sources) if getattr(args, "sources", None) else None,
+                        target_export=getattr(args, "target_export", None),
+                        auto_target=getattr(args, "auto_target", False),
+                        candidate_versions=_split_csv(args.candidate_versions) if getattr(args, "candidate_versions", None) else None,
+                        candidate_loaders=_split_csv(args.candidate_loaders) if getattr(args, "candidate_loaders", None) else None,
+                        allow_manual_sources=getattr(args, "allow_manual_sources", False),
                     )
                 )
             )
@@ -546,9 +596,72 @@ def _fallback_main(argv: list[str] | None = None) -> int:
                         download=not args.dry_run,
                         validate_launch=args.validate_launch,
                         force=args.force,
+                        sources=_split_csv(args.sources) if getattr(args, "sources", None) else None,
+                        target_export=getattr(args, "target_export", None),
+                        auto_target=getattr(args, "auto_target", False),
+                        candidate_versions=_split_csv(args.candidate_versions) if getattr(args, "candidate_versions", None) else None,
+                        candidate_loaders=_split_csv(args.candidate_loaders) if getattr(args, "candidate_loaders", None) else None,
+                        allow_manual_sources=getattr(args, "allow_manual_sources", False),
+                        loader_version=getattr(args, "loader_version", None),
                     )
                 )
             )
+        return 0
+    if args.command == "autopilot":
+        autopilot_report = asyncio.run(
+            run_autopilot(
+                AutopilotRequest(
+                    selected_mods_path=args.selected_mods,
+                    sources=_split_csv(args.sources),
+                    target_export=args.target_export,
+                    minecraft_version=args.minecraft_version,
+                    loader=args.loader,
+                    loader_version=args.loader_version,
+                    candidate_versions=_split_csv(args.candidate_versions),
+                    candidate_loaders=_split_csv(args.candidate_loaders),
+                    max_attempts=args.max_attempts,
+                    memory_mb=args.memory_mb,
+                    timeout_seconds=args.timeout_seconds,
+                    output_root=args.output_root,
+                    java_path=args.java_path,
+                    allow_manual_sources=args.allow_manual_sources,
+                    allow_target_switch=args.allow_target_switch,
+                    allow_loader_switch=args.allow_loader_switch,
+                    allow_minecraft_version_switch=args.allow_minecraft_version_switch,
+                    allow_remove_content_mods=args.allow_remove_content_mods,
+                    keep_failed_instances=args.keep_failed_instances,
+                    inject_smoke_test=args.inject_smoke_test,
+                    smoke_test_helper_path=args.smoke_test_helper_path,
+                    require_smoke_test_proof=args.require_smoke_test_proof,
+                    minimum_stability_seconds=args.minimum_stability_seconds,
+                )
+            )
+        )
+        if args.json:
+            _print_json(autopilot_report)
+        else:
+            print(f"MythWeaver Autopilot: {autopilot_report.status.replace('_', ' ').upper()}")
+            print()
+            print("Final target:")
+            print(f"- Minecraft {autopilot_report.final_minecraft_version or 'n/a'}")
+            print(f"- Loader {autopilot_report.final_loader or 'n/a'} {autopilot_report.final_loader_version or ''}".rstrip())
+            if autopilot_report.final_proof is not None:
+                print(f"- Proof {autopilot_report.final_proof.proof_level}")
+                print(f"- Smoke-test helper used {autopilot_report.final_proof.smoke_test_mod_used}")
+                print(f"- Stability seconds {autopilot_report.final_proof.stability_seconds_proven}")
+                print(f"- Evidence {autopilot_report.final_proof.evidence_path or 'n/a'}")
+            print()
+            print("Attempts:")
+            for attempt in autopilot_report.attempts:
+                issue_text = ", ".join(issue.kind for issue in attempt.issues) or "none"
+                print(f"{attempt.attempt_number}. {attempt.runtime_status}: {issue_text}")
+                for diagnosis in attempt.diagnoses:
+                    print(f"   Diagnosis: {diagnosis.kind} ({diagnosis.confidence}) - {diagnosis.summary}")
+                for applied in attempt.actions_applied:
+                    print(f"   Applied: {applied.status} {applied.action.action} {applied.action.query or ''}".rstrip())
+            print()
+            print(f"Final instance: {autopilot_report.final_instance_path or 'n/a'}")
+            print(f"Report: {autopilot_report.report_paths.get('json', 'n/a')}")
         return 0
     if args.command == "validate-pack":
         facade = AgentToolFacade(_settings_for_args(args, force_validation=True))

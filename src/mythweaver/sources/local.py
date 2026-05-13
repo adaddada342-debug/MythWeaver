@@ -4,7 +4,9 @@ import hashlib
 import json
 import zipfile
 from pathlib import Path
+from typing import Any
 
+from mythweaver.catalog.loaders import normalize_loader
 from mythweaver.schemas.contracts import SourceFileCandidate, SourceSearchResult
 
 
@@ -24,9 +26,9 @@ class LocalFileSourceProvider:
             return SourceFileCandidate(source="local", name=str(path), acquisition_status="unsupported", warnings=["Local file does not exist."])
         metadata = _read_jar_metadata(path)
         hashes = _hashes(path)
-        loaders = metadata.get("loaders", [])
+        loaders = [normalize_loader(item) for item in metadata.get("loaders", [])]
         versions = metadata.get("minecraft_versions", [])
-        loader_ok = not loaders or loader in loaders
+        loader_ok = not loaders or normalize_loader(loader) in loaders
         version_ok = not versions or minecraft_version in versions or any(_constraint_matches(minecraft_version, item) for item in versions)
         verified = path.suffix.lower() == ".jar" and bool(hashes) and loader_ok and version_ok and bool(loaders or versions)
         warnings = []
@@ -71,7 +73,7 @@ def _hashes(path: Path) -> dict[str, str]:
     return {"sha1": sha1.hexdigest(), "sha512": sha512.hexdigest()}
 
 
-def _read_jar_metadata(path: Path) -> dict:
+def _read_jar_metadata(path: Path) -> dict[str, Any]:
     try:
         with zipfile.ZipFile(path) as archive:
             if "fabric.mod.json" in archive.namelist():

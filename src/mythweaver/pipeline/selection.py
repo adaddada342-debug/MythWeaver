@@ -211,8 +211,6 @@ def _select_strict(candidates: list[CandidateMod], profile, *, max_mods: int) ->
     group_counts: dict[str, int] = {}
     rejected: list[RejectedMod] = []
     viable = [candidate for candidate in candidates if not candidate.score.hard_reject_reason]
-    novelty_candidates = [candidate.project_id for candidate in viable if is_novelty_candidate(candidate)]
-
     required_caps = [cap for cap in profile.required_capabilities if cap not in {"performance_foundation"}]
     for capability in required_caps:
         matches = [candidate for candidate in viable if _capability_evidence(candidate, capability)]

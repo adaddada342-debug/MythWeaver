@@ -1,0 +1,58 @@
+{
+  "name": "Starlit Wilderlands",
+  "summary": "Beautiful vanilla+ Fabric 1.20.1 exploration pack with cozy frontier settlement progression: scenic terrain, village and structure discovery, wildlife, atmosphere, practical travel/storage QoL, and warm homestead building depth without hardcore or tech bloat.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    {"slug": "sodium", "role": "foundation", "reason_selected": "performance_foundation renderer performance for scenic exploration"},
+    {"slug": "lithium", "role": "foundation", "reason_selected": "performance_foundation gameplay and simulation optimization"},
+    {"slug": "ferrite-core", "role": "foundation", "reason_selected": "performance_foundation memory reduction for long-term worlds"},
+    {"slug": "modernfix", "role": "foundation", "reason_selected": "performance_foundation startup and stability fixes"},
+    {"slug": "immediatelyfast", "role": "foundation", "reason_selected": "performance_foundation client rendering speedups"},
+    {"slug": "entityculling", "role": "foundation", "reason_selected": "performance_foundation reduce hidden render overhead in settlements"},
+    {"slug": "indium", "role": "foundation", "reason_selected": "performance_foundation Sodium compatibility for Fabric rendering features"},
+
+    {"slug": "modmenu", "role": "utility", "reason_selected": "client_qol clear mod settings access"},
+    {"slug": "jade", "role": "utility", "reason_selected": "client_qol readable block and entity context during exploration/building"},
+    {"slug": "emi", "role": "utility", "reason_selected": "inventory_qol unified recipes and usages"},
+    {"slug": "appleskin", "role": "utility", "reason_selected": "client_qol food and saturation clarity"},
+    {"slug": "mouse-tweaks", "role": "utility", "reason_selected": "inventory_qol smoother inventory actions"},
+    {"slug": "shulkerboxtooltip", "role": "utility", "reason_selected": "inventory_qol container preview for expedition storage"},
+
+    {"slug": "terralith", "role": "theme", "reason_selected": "scenic_worldgen striking terrain to encourage long exploration routes"},
+    {"slug": "ct-overhaul-village", "role": "theme", "reason_selected": "villages richer village destinations for settlement progression"},
+    {"slug": "explorify", "role": "theme", "reason_selected": "light_structures exploration rewards without heavy dungeon pressure"},
+    {"slug": "repurposed-structures-fabric", "role": "theme", "reason_selected": "light_structures vanilla-style structure variety for ruins-hunting"},
+    {"slug": "naturalist", "role": "theme", "reason_selected": "animals wildlife flavor for living wilderness"},
+
+    {"slug": "visuality", "role": "theme", "reason_selected": "visual_polish ambient visual feedback across biomes"},
+    {"slug": "ambientsounds", "role": "theme", "reason_selected": "ambience biome-driven environmental atmosphere"},
+    {"slug": "sound-physics-remastered", "role": "theme", "reason_selected": "soundscape spatialized audio depth in caves and buildings"},
+    {"slug": "presence-footsteps", "role": "theme", "reason_selected": "soundscape tactile movement feedback for immersive travel", "required": false},
+
+    {"slug": "chipped", "role": "theme", "reason_selected": "building_blocks broad decorative block palette for homesteads"},
+    {"slug": "rechiseled", "role": "theme", "reason_selected": "building_blocks additional texture and trim options"},
+    {"slug": "supplementaries", "role": "theme", "reason_selected": "decoration practical decorative props for cozy base life"},
+    {"slug": "amendments", "role": "theme", "reason_selected": "decoration vanilla-friendly improvements for lived-in spaces"},
+    {"slug": "another-furniture", "role": "theme", "reason_selected": "decoration interior comfort furniture set"},
+    {"slug": "handcrafted", "role": "theme", "reason_selected": "decoration complementary furniture and decor variety"},
+    {"slug": "macaws-bridges", "role": "theme", "reason_selected": "building_blocks bridge and crossing options for exploration routes"},
+    {"slug": "macaws-doors", "role": "theme", "reason_selected": "building_blocks door variety for settlements and lodges"},
+    {"slug": "macaws-windows", "role": "theme", "reason_selected": "building_blocks window detailing for cozy architecture"},
+    {"slug": "macaws-roofs", "role": "theme", "reason_selected": "building_blocks roof shapes for distinctive village skyline"},
+    {"slug": "macaws-fences-and-walls", "role": "theme", "reason_selected": "building_blocks perimeter and farm boundary detailing"},
+
+    {"slug": "farmers-delight-refabricated", "role": "theme", "reason_selected": "farming and cooking home loop anchor through meals and crops"},
+    {"slug": "more-delight", "role": "theme", "reason_selected": "cooking additional meal depth for sustained homestead progression", "required": false},
+
+    {"slug": "travelersbackpack", "role": "utility", "reason_selected": "backpack_storage expedition inventory and fluid utility"},
+    {"slug": "toms-storage", "role": "utility", "reason_selected": "base_storage practical home storage without tech bloat"},
+    {"slug": "xaeros-minimap", "role": "utility", "reason_selected": "map_tools local navigation and waypointing"},
+    {"slug": "xaeros-world-map", "role": "utility", "reason_selected": "map_tools global exploration planning and memory"},
+    {"slug": "natures-compass", "role": "utility", "reason_selected": "map_tools targeted biome discovery for builds and resources"},
+    {"slug": "waystones", "role": "utility", "reason_selected": "comfortable_travel reduce backtracking between home and discovery sites"},
+    {"slug": "comforts", "role": "utility", "reason_selected": "comfortable_travel safer travel pacing with portable sleep options"}
+  ],
+  "shader_recommendations": [],
+  "notes": "Curated stable-focused vanilla+ exploration identity. Optional sound and food addon mods can be removed first during runtime stabilization if needed without breaking core pack fantasy."
+}

@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 
 from mythweaver.builders.paths import safe_file_name, safe_slug
+from mythweaver.catalog.loaders import prism_component_uid
 from mythweaver.schemas.contracts import BuildArtifact, ResolvedPack
 
 
@@ -14,13 +15,10 @@ def _instance_id(name: str) -> str:
 
 
 def _component_uid(loader: str) -> str:
-    if loader == "fabric":
-        return "net.fabricmc.fabric-loader"
-    if loader == "quilt":
-        return "org.quiltmc.quilt-loader"
-    if loader == "neoforge":
-        return "net.neoforged"
-    return "net.minecraftforge"
+    uid = prism_component_uid(loader)
+    if uid is None:
+        raise ValueError(f"unsupported Prism loader component: {loader}")
+    return uid
 
 
 def _write_instance_cfg(path: Path, pack: ResolvedPack, memory_mb: int | None = None) -> None:

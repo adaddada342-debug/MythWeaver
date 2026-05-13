@@ -23,6 +23,25 @@ python -m mythweaver.cli.main generate "<user modpack idea>"
 
 Use `--dry-run` first when you want a fast plan/report without downloading jars.
 
+For multi-source work, use source-aware commands explicitly:
+
+```powershell
+python -m mythweaver.cli.main source-search "magic" --mc-version 1.20.1 --loader forge --sources modrinth,curseforge
+python -m mythweaver.cli.main source-resolve selected_mods.json --sources modrinth,curseforge --target-export curseforge_manifest
+python -m mythweaver.cli.main build-from-list selected_mods.json --sources curseforge --target-export curseforge_manifest --loader-version 47.2.0
+python -m mythweaver.cli.main build-from-list selected_mods.json --sources modrinth,curseforge --auto-target --target-export prism_instance
+```
+
+For Autopilot V1 runtime verification, use:
+
+```powershell
+python -m mythweaver.cli.main autopilot selected_mods.json --sources modrinth,curseforge --target-export local_instance --loader fabric
+```
+
+Autopilot requires MythWeaver smoke-test proof by default. `verified_playable` means the private
+Fabric runtime saw smoke-test world-join and stability markers, not just client-start/main-menu log
+lines. Forge, NeoForge, and Quilt still return unsupported runtime issues in the private runtime.
+
 ## Required Flow
 
 1. Convert the user idea into a `RequirementProfile`.
@@ -59,5 +78,11 @@ python -m mythweaver.cli.main start "A horrifying infinite winter survival world
 - No guessed download URLs.
 - No unverified versions.
 - No installing files without hashes.
+- Do not scrape CurseForge or Planet Minecraft pages.
+- CurseForge requires the official API and `CURSEFORGE_API_KEY`.
+- Planet Minecraft is manual discovery only.
+- Direct URLs are blocked by default.
+- Treat Modrinth `.mrpack`, CurseForge manifest, Prism instance, and local instance as different export targets.
+- Do not call Autopilot packs verified unless smoke-test proof is present or the user explicitly chose a weaker manual diagnostic mode.
 - Prefer a coherent playable pack over a huge unstable pack.
 - Put final artifacts under `output/generated/<pack-name>/`.

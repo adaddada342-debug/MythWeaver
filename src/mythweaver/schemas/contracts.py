@@ -6,7 +6,33 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-Loader = Literal["fabric", "forge", "neoforge", "quilt"]
+SupportedLoader = Literal[
+    "fabric",
+    "forge",
+    "neoforge",
+    "quilt",
+    "vanilla",
+    "liteloader",
+    "rift",
+    "babric",
+    "legacy_fabric",
+    "unknown",
+]
+RequestedLoader = Literal[
+    "fabric",
+    "forge",
+    "neoforge",
+    "quilt",
+    "vanilla",
+    "liteloader",
+    "rift",
+    "babric",
+    "legacy_fabric",
+    "unknown",
+    "auto",
+    "any",
+]
+Loader = RequestedLoader
 SideSupport = Literal["required", "optional", "unsupported", "unknown"]
 DependencyType = Literal["required", "optional", "incompatible", "embedded"]
 VersionType = Literal["release", "beta", "alpha"]
@@ -161,8 +187,14 @@ class SelectedModEntry(AgentSafeModel):
     alternatives: list[str] = Field(default_factory=list)
     source: Literal["modrinth", "curseforge", "github", "planetminecraft", "local", "direct_url", "auto"] = "auto"
     source_ref: str | None = None
+    source_project_id: str | None = None
+    source_file_id: str | None = None
+    source_slug: str | None = None
+    source_url: str | None = None
+    preferred_source: Literal["modrinth", "curseforge", "github", "planetminecraft", "local", "direct_url", "auto"] | None = None
+    allowed_sources: list[Literal["modrinth", "curseforge", "github", "planetminecraft", "local", "direct_url"]] = Field(default_factory=list)
 
-    @field_validator("slug", "modrinth_id")
+    @field_validator("slug", "modrinth_id", "source_project_id", "source_file_id", "source_slug", "source_url", "source_ref")
     @classmethod
     def normalize_identifier(cls, value: str | None) -> str | None:
         if value is None:
@@ -177,12 +209,21 @@ class SelectedModEntry(AgentSafeModel):
 
     @model_validator(mode="after")
     def require_identifier(self) -> "SelectedModEntry":
-        if not self.slug and not self.modrinth_id:
-            raise ValueError("selected mod entry requires slug or modrinth_id")
+        if not any(
+            [
+                self.slug,
+                self.modrinth_id,
+                self.source_ref,
+                self.source_project_id,
+                self.source_slug,
+                self.source_url,
+            ]
+        ):
+            raise ValueError("selected mod entry requires slug, modrinth_id, or source-specific ref")
         return self
 
     def identifier(self) -> str:
-        return self.modrinth_id or self.slug or ""
+        return self.source_ref or self.source_project_id or self.source_slug or self.source_url or self.modrinth_id or self.slug or ""
 
 
 class SelectedModList(AgentSafeModel):
@@ -578,6 +619,7 @@ class FailureAnalysis(AgentSafeModel):
     summary: str
     evidence: list[str] = Field(default_factory=list)
     repair_candidates: list[str] = Field(default_factory=list)
+    likely_causes: list[str] = Field(default_factory=list)
 
 
 class ValidationReport(AgentSafeModel):
@@ -766,6 +808,7 @@ class CrashFinding(AgentSafeModel):
         "loader_error",
         "mod_conflict",
         "external_dependency_risk",
+        "final_artifact_invalid",
         "unknown_runtime_error",
     ]
     title: str
@@ -1094,9 +1137,16 @@ class SourceResolveReport(AgentSafeModel):
     minecraft_version: str
     loader: str
     selected_files: list[SourceFileCandidate] = Field(default_factory=list)
+    manifest_files: list[SourceFileCandidate] = Field(default_factory=list)
     manual_required: list[SourceFileCandidate] = Field(default_factory=list)
     blocked: list[SourceFileCandidate] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    required_count: int = 0
+    missing_count: int = 0
+    unsupported_count: int = 0
+    manual_required_count: int = 0
+    export_supported: bool = False
+    export_blockers: list[str] = Field(default_factory=list)
     unresolved_required_dependencies: list[RejectedMod] = Field(default_factory=list)
     manually_required_dependencies: list[SourceFileCandidate] = Field(default_factory=list)
     optional_dependencies: list[SourceDependencyRecord] = Field(default_factory=list)
@@ -1104,6 +1154,39 @@ class SourceResolveReport(AgentSafeModel):
     transitive_dependency_count: int = 0
     dependency_source_breakdown: dict[str, int] = Field(default_factory=dict)
     dependency_closure_passed: bool = False
+
+
+class TargetCoverageRecord(AgentSafeModel):
+    source: str
+    selected_count: int = 0
+    manual_required_count: int = 0
+    blocked_count: int = 0
+    warnings: list[str] = Field(default_factory=list)
+
+
+class TargetCandidate(AgentSafeModel):
+    minecraft_version: str
+    loader: str
+    sources: list[str] = Field(default_factory=list)
+    selected_count: int = 0
+    required_count: int = 0
+    missing_count: int = 0
+    unsupported_count: int = 0
+    manual_required_count: int = 0
+    score: float = 0.0
+    reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class TargetMatrixReport(AgentSafeModel):
+    requested_minecraft_version: str
+    requested_loader: str
+    considered_versions: list[str] = Field(default_factory=list)
+    considered_loaders: list[str] = Field(default_factory=list)
+    best: TargetCandidate | None = None
+    candidates: list[TargetCandidate] = Field(default_factory=list)
+    status: Literal["resolved", "partial", "failed"] = "failed"
+    warnings: list[str] = Field(default_factory=list)
 
 
 class PerformanceFoundationReport(AgentSafeModel):
@@ -1255,3 +1338,6 @@ class AgentPackReport(AgentSafeModel):
     next_actions: list[str] = Field(default_factory=list)
     output_dir: str | None = None
     removed_mods: list[RemovedSelectedMod] = Field(default_factory=list)
+    final_artifact_validation_status: str | None = None
+    final_artifact_validation_report_path: str | None = None
+    final_artifact_validation_summary: str | None = None

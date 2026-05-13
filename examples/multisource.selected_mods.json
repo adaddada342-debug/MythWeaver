@@ -1,0 +1,25 @@
+{
+  "name": "Multi Source Example",
+  "summary": "Example selected list that allows Modrinth and CurseForge resolution.",
+  "minecraft_version": "any",
+  "loader": "any",
+  "mods": [
+    {
+      "slug": "sodium",
+      "role": "foundation",
+      "reason_selected": "Performance foundation from Modrinth.",
+      "preferred_source": "modrinth",
+      "allowed_sources": ["modrinth"]
+    },
+    {
+      "source": "curseforge",
+      "source_project_id": "238222",
+      "role": "theme",
+      "reason_selected": "CurseForge project ID example; MythWeaver must verify file metadata through the official API.",
+      "preferred_source": "curseforge",
+      "allowed_sources": ["curseforge"]
+    }
+  ],
+  "shader_recommendations": [],
+  "notes": "Project IDs are examples of source-specific references, not proof of target compatibility until source-resolve runs."
+}
