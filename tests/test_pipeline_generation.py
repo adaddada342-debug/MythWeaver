@@ -62,7 +62,7 @@ class FakePipelineModrinth:
             }
         return {"hits": []}
 
-    async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False):
+    async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False, use_loader_filter=True, **kwargs):
         return [version_payload(project_id_or_slug, game_versions=["1.20.1"])]
 
 
@@ -191,7 +191,7 @@ class PipelineGenerationTests(unittest.IsolatedAsyncioTestCase):
                     }
                 return {}
 
-            async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False):
+            async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False, use_loader_filter=True, **kwargs):
                 version = version_payload(project_id_or_slug, game_versions=["1.20.1"])
                 if project_id_or_slug == "winter-a":
                     version["dependencies"] = [

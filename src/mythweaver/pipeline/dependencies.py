@@ -18,6 +18,8 @@ async def expand_required_dependencies(
 
     while queue:
         candidate = queue.pop(0)
+        if getattr(candidate, "content_kind", "mod") != "mod":
+            continue
         for dependency in candidate.selected_version.dependencies:
             if dependency.dependency_type != "required" or not dependency.project_id:
                 continue

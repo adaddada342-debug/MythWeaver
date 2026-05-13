@@ -25,14 +25,29 @@ def build_source_instance(
     instance_dir = Path(output_root) / safe_slug(name, fallback="mythweaver-pack")
     minecraft_dir = instance_dir / ".minecraft"
     mods_dir = minecraft_dir / "mods"
+    rp_dir = minecraft_dir / "resourcepacks"
+    sp_dir = minecraft_dir / "shaderpacks"
     mods_dir.mkdir(parents=True, exist_ok=True)
+    rp_dir.mkdir(parents=True, exist_ok=True)
+    sp_dir.mkdir(parents=True, exist_ok=True)
 
     _write_instance_cfg(instance_dir / "instance.cfg", name)
     _write_mmc_pack(instance_dir / "mmc-pack.json", report, loader_version=loader_version)
     for candidate in report.selected_files:
         source = _acquire_source_file(candidate, instance_dir / "cache", user_agent)
         file_name = candidate.file_name or Path(source).name
-        shutil.copy2(source, mods_dir / safe_file_name(file_name))
+        kind = getattr(candidate, "content_kind", "mod") or "mod"
+        if kind == "datapack":
+            continue
+        if kind == "mod":
+            dest_dir = mods_dir
+        elif kind == "resourcepack":
+            dest_dir = rp_dir
+        elif kind == "shaderpack":
+            dest_dir = sp_dir
+        else:
+            dest_dir = mods_dir
+        shutil.copy2(source, dest_dir / safe_file_name(file_name))
 
     return BuildArtifact(
         kind="prism-instance" if prism else "local-instance",
@@ -98,6 +113,8 @@ def _verify_hashes(path: Path, hashes: dict[str, str]) -> bool:
     checked = False
     for algorithm, expected in hashes.items():
         if algorithm not in {"sha1", "sha512", "md5"}:
+            continue
+        if not expected:
             continue
         checked = True
         digest = hashlib.new(algorithm)

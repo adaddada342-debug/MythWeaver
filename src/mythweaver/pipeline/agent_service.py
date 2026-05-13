@@ -14,6 +14,12 @@ from mythweaver.autopilot.loop import run_autopilot
 from mythweaver.builders.curseforge_manifest import build_curseforge_manifest
 from mythweaver.builders.paths import safe_slug
 from mythweaver.builders.source_instance import build_source_instance
+from mythweaver.catalog.modrinth_datapack_edge import (
+    apply_modrinth_mod_datapack_edge_to_candidate,
+    modrinth_mod_project_datapack_edge_applies,
+    modrinth_version_dict_installable,
+    modrinth_version_loaders_effectively_datapack_only,
+)
 from mythweaver.catalog.target_matrix import build_target_matrix
 from mythweaver.handoff import (
     write_cloud_ai_agent_repair_prompt,
@@ -65,6 +71,7 @@ from mythweaver.schemas.contracts import (
     RejectedMod,
     RemovedSelectedMod,
     RequirementProfile,
+    ResolvedPack,
     SearchPlan,
     ReviewIssue,
     SelectedModEntry,
@@ -308,18 +315,21 @@ class AgentModpackService:
 
     async def verify_mod_list(self, selected: SelectedModList) -> AgentPackReport:
         user_selected, rejected = await self._hydrate_selected_mods(selected)
-        status = "failed" if rejected else "completed"
+        fatal = [r for r in rejected if r.reason != "optional_not_resolved"]
+        optional_msgs = [f"Optional row not resolved ({r.project_id}): {r.detail or r.reason}" for r in rejected if r.reason == "optional_not_resolved"]
+        status = "failed" if fatal else "completed"
         memory_hints = self.memory.hints_for_candidates(user_selected, minecraft_version=selected.minecraft_version, loader=selected.loader)
+        compat = list(memory_hints["warnings"]) + optional_msgs
         return self._report(
             selected,
             status=status,
-            failed_stage="verify_list" if rejected else None,
+            failed_stage="verify_list" if fatal else None,
             user_selected_mods=user_selected,
             selected_mods=user_selected,
-            rejected_mods=rejected,
-            incompatible_mods=[item for item in rejected if item.reason == "no_compatible_installable_version"],
-            unresolved_mods=[item for item in rejected if item.reason == "project_not_found"],
-            compatibility_warnings=memory_hints["warnings"],
+            rejected_mods=fatal,
+            incompatible_mods=[item for item in fatal if item.reason == "no_compatible_installable_version"],
+            unresolved_mods=[item for item in fatal if item.reason == "project_not_found"],
+            compatibility_warnings=compat,
             known_good_matches=memory_hints["known_good_matches"],
             known_risk_matches=memory_hints["known_risk_matches"],
             memory_confidence_adjustment=memory_hints["confidence_adjustment"],
@@ -1146,6 +1156,8 @@ class AgentModpackService:
         smoke_test_helper_path: str | None = None,
         require_smoke_test_proof: bool = True,
         minimum_stability_seconds: int = 60,
+        run_id: str | None = None,
+        resume_run_id: str | None = None,
     ) -> AutopilotReport:
         output_root = Path(output_root)
         output_root.mkdir(parents=True, exist_ok=True)
@@ -1155,6 +1167,8 @@ class AgentModpackService:
             AutopilotRequest(
                 selected_mods_path=str(selected_path),
                 sources=sources or ["modrinth", "curseforge"],
+                run_id=run_id,
+                resume_run_id=resume_run_id,
                 target_export=target_export,
                 minecraft_version=minecraft_version,
                 loader=loader,
@@ -1855,10 +1869,24 @@ class AgentModpackService:
 
     async def _inspect_hit(self, hit: dict[str, Any], *, loader: str, minecraft_version: str) -> dict[str, Any]:
         project_id = hit.get("project_id") or hit.get("id") or hit.get("slug")
-        versions = await self._versions_for(hit, project_id, loader=loader, minecraft_version=minecraft_version)
+        from mythweaver.catalog.content_kinds import content_kind_from_modrinth_project_type, modrinth_version_uses_loader_filter
+
+        k, _ = content_kind_from_modrinth_project_type(hit.get("project_type"))
+        versions = await self._versions_for(hit, str(project_id), loader=loader, minecraft_version=minecraft_version, content_kind=k)
         if not versions and minecraft_version != "auto":
-            versions = await self._versions_for(hit, project_id, loader=loader, minecraft_version="auto")
-        details = _installability_details(hit, versions, loader=loader, minecraft_version=minecraft_version)
+            versions = await self._versions_for(hit, str(project_id), loader=loader, minecraft_version="auto", content_kind=k)
+        if not versions and str(hit.get("project_type", "")).strip().lower() == "mod" and k == "mod":
+            versions = await self._versions_for(
+                hit, str(project_id), loader=loader, minecraft_version=minecraft_version, content_kind="datapack"
+            )
+            if not versions and minecraft_version != "auto":
+                versions = await self._versions_for(
+                    hit, str(project_id), loader=loader, minecraft_version="auto", content_kind="datapack"
+                )
+        require_loader = modrinth_version_uses_loader_filter(k)
+        details = _installability_details(
+            hit, versions, loader=loader, minecraft_version=minecraft_version, require_loader_match=require_loader
+        )
         compatible = []
         candidate = details["candidate"]
         if candidate and details["selected_version"]:
@@ -1908,7 +1936,18 @@ class AgentModpackService:
             },
         }
 
-    async def _versions_for(self, hit: dict[str, Any], identifier: str, *, loader: str, minecraft_version: str) -> list[dict[str, Any]]:
+    async def _versions_for(
+        self,
+        hit: dict[str, Any],
+        identifier: str,
+        *,
+        loader: str,
+        minecraft_version: str,
+        content_kind: str = "mod",
+    ) -> list[dict[str, Any]]:
+        from mythweaver.catalog.content_kinds import modrinth_version_uses_loader_filter
+
+        use_loader_filter = modrinth_version_uses_loader_filter(content_kind)  # type: ignore[arg-type]
         identifiers = list(dict.fromkeys([identifier, hit.get("slug"), hit.get("id")]))
         for current in identifiers:
             if not current:
@@ -1918,71 +1957,258 @@ class AgentModpackService:
                 loader=loader,
                 minecraft_version=minecraft_version,
                 include_changelog=False,
+                use_loader_filter=use_loader_filter,
             )
             if versions:
                 return versions
         return []
 
     async def _hydrate_selected_mods(self, selected: SelectedModList) -> tuple[list[CandidateMod], list[RejectedMod]]:
+        from mythweaver.catalog.cf_candidate_builder import candidate_mod_from_curseforge
+        from mythweaver.catalog.content_kinds import (
+            content_kind_from_curseforge_class_id,
+            content_kind_from_modrinth_project_type,
+            modrinth_version_uses_loader_filter,
+        )
+        from mythweaver.catalog.selection_normalize import normalized_selection_rows
+        from mythweaver.sources.curseforge import CurseForgeSourceProvider
+
         candidates: list[CandidateMod] = []
         rejected: list[RejectedMod] = []
         seen_selected_keys: set[str] = set()
         seen_project_ids: set[str] = set()
-        for entry in selected.mods:
-            ident_key = entry.identifier().strip().lower()
+
+        for row in normalized_selection_rows(selected):
+            ident_key = f"{row.source}:{row.ref}".strip().lower()
             if ident_key in seen_selected_keys:
                 rejected.append(
                     RejectedMod(
-                        project_id=entry.identifier(),
+                        project_id=row.ref,
                         reason="duplicate_selected_entry",
-                        detail="Duplicate slug or modrinth_id in selected_mods.json",
+                        detail="Duplicate slug or id in selected_mods.json / content list",
                     )
                 )
                 continue
+
+            if row.source == "curseforge":
+                cf = CurseForgeSourceProvider()
+                if not cf.is_configured():
+                    rejected.append(
+                        RejectedMod(
+                            project_id=row.ref,
+                            reason="curseforge_not_configured",
+                            detail="CURSEFORGE_API_KEY is not set; cannot resolve CurseForge selection rows.",
+                        )
+                    )
+                    continue
+                picked = await cf.pick_mod_and_file(
+                    row.ref,
+                    minecraft_version=selected.minecraft_version,
+                    loader=selected.loader,
+                    require_loader_match=row.kind == "mod",
+                )
+                if not picked:
+                    if row.required:
+                        rejected.append(
+                            RejectedMod(
+                                project_id=row.ref,
+                                reason="no_compatible_installable_version",
+                                detail="No CurseForge file matched the requested Minecraft version (and loader policy).",
+                            )
+                        )
+                    else:
+                        rejected.append(
+                            RejectedMod(
+                                project_id=row.ref,
+                                reason="optional_not_resolved",
+                                detail="Optional CurseForge row could not be resolved.",
+                            )
+                        )
+                    continue
+                mod, file_obj = picked
+                class_id = mod.get("classId")
+                inferred = content_kind_from_curseforge_class_id(int(class_id)) if class_id is not None else None
+                if inferred is not None and inferred != row.kind:
+                    rejected.append(
+                        RejectedMod(
+                            project_id=row.ref,
+                            title=mod.get("name"),
+                            reason="source_kind_mismatch",
+                            detail=f"expected kind {row.kind} but CurseForge classId maps to {inferred}",
+                        )
+                    )
+                    continue
+                try:
+                    candidate = candidate_mod_from_curseforge(
+                        mod,
+                        file_obj,
+                        content_kind=row.kind,
+                        content_placement=row.placement,
+                        platform_class_id=int(class_id) if class_id is not None else None,
+                        selection_type=_selection_type_from_normalized(row),
+                        why_selected=[row.reason_selected] if row.reason_selected else list(row.notes),
+                    )
+                except Exception as exc:
+                    rejected.append(
+                        RejectedMod(
+                            project_id=row.ref,
+                            title=mod.get("name"),
+                            reason="invalid_metadata",
+                            detail=str(exc),
+                        )
+                    )
+                    continue
+                candidate.enabled_by_default = row.enabled_by_default
+                candidate.matched_capabilities = sorted(infer_candidate_capabilities(candidate))
+                pid_norm = str(mod.get("id") or "").strip().lower()
+                if pid_norm and pid_norm in seen_project_ids:
+                    rejected.append(
+                        RejectedMod(
+                            project_id=row.ref,
+                            title=mod.get("name"),
+                            reason="duplicate_selected_modrinth_project",
+                            detail="Same project already selected under another entry",
+                        )
+                    )
+                    continue
+                candidates.append(candidate)
+                seen_selected_keys.add(ident_key)
+                if pid_norm:
+                    seen_project_ids.add(pid_norm)
+                continue
+
             try:
-                project = await self.facade.modrinth.get_project(entry.identifier())
+                project = await self.facade.modrinth.get_project(row.ref)
             except Exception:
-                rejected.append(RejectedMod(project_id=entry.identifier(), reason="project_not_found"))
+                if row.required:
+                    rejected.append(RejectedMod(project_id=row.ref, reason="project_not_found"))
+                else:
+                    rejected.append(
+                        RejectedMod(project_id=row.ref, reason="optional_not_resolved", detail="Optional Modrinth row was not found.")
+                    )
                 continue
             pid_norm = str(project.get("id") or project.get("project_id") or "").strip().lower()
             if pid_norm and pid_norm in seen_project_ids:
                 rejected.append(
                     RejectedMod(
-                        project_id=entry.identifier(),
+                        project_id=row.ref,
                         title=project.get("title"),
                         reason="duplicate_selected_modrinth_project",
                         detail="Same Modrinth project already selected under another entry",
                     )
                 )
                 continue
-            if project.get("project_type", "mod") != "mod":
-                rejected.append(RejectedMod(project_id=entry.identifier(), title=project.get("title"), reason="not_a_mod_project"))
-                continue
+            platform_kind, _ = content_kind_from_modrinth_project_type(project.get("project_type"))
+            if platform_kind != row.kind:
+                if not (
+                    str(project.get("project_type", "")).strip().lower() == "mod"
+                    and row.kind == "datapack"
+                ):
+                    rejected.append(
+                        RejectedMod(
+                            project_id=row.ref,
+                            title=project.get("title"),
+                            reason="source_kind_mismatch",
+                            detail=f"expected kind {row.kind} but Modrinth project_type resolves to {platform_kind}",
+                        )
+                    )
+                    continue
             if project.get("status") in {"archived", "unlisted", "rejected", "withheld"}:
-                rejected.append(RejectedMod(project_id=entry.identifier(), title=project.get("title"), reason="project_not_installable"))
+                rejected.append(RejectedMod(project_id=row.ref, title=project.get("title"), reason="project_not_installable"))
                 continue
-            versions = await self._versions_for(project, entry.identifier(), loader=selected.loader, minecraft_version=selected.minecraft_version)
+            require_loader = modrinth_version_uses_loader_filter(row.kind)
+            versions = await self._versions_for(
+                project, row.ref, loader=selected.loader, minecraft_version=selected.minecraft_version, content_kind=row.kind
+            )
             if not versions and selected.minecraft_version != "auto":
-                versions = await self._versions_for(project, entry.identifier(), loader=selected.loader, minecraft_version="auto")
+                versions = await self._versions_for(
+                    project, row.ref, loader=selected.loader, minecraft_version="auto", content_kind=row.kind
+                )
+            if (
+                not versions
+                and str(project.get("project_type", "")).strip().lower() == "mod"
+                and row.kind == "mod"
+            ):
+                versions = await self._versions_for(
+                    project,
+                    row.ref,
+                    loader=selected.loader,
+                    minecraft_version=selected.minecraft_version,
+                    content_kind="datapack",
+                )
+                if not versions and selected.minecraft_version != "auto":
+                    versions = await self._versions_for(
+                        project,
+                        row.ref,
+                        loader=selected.loader,
+                        minecraft_version="auto",
+                        content_kind="datapack",
+                    )
             details = _installability_details(
                 project,
                 versions,
                 loader=selected.loader,
                 minecraft_version=selected.minecraft_version,
+                require_loader_match=require_loader,
             )
             candidate = details["candidate"]
             if not candidate:
+                if row.required:
+                    rejected.append(
+                        RejectedMod(
+                            project_id=row.ref,
+                            title=project.get("title"),
+                            reason="no_compatible_installable_version",
+                            detail=f"{details['installability_reason']}: {details['installability_message']}",
+                        )
+                    )
+                else:
+                    rejected.append(
+                        RejectedMod(
+                            project_id=row.ref,
+                            title=project.get("title"),
+                            reason="optional_not_resolved",
+                            detail=f"{details['installability_reason']}: {details['installability_message']}",
+                        )
+                    )
+                continue
+            sel_ver = details["selected_version"]
+            if (
+                row.kind == "datapack"
+                and str(project.get("project_type", "")).strip().lower() == "mod"
+                and sel_ver is not None
+                and not modrinth_version_loaders_effectively_datapack_only(sel_ver)
+            ):
                 rejected.append(
                     RejectedMod(
-                        project_id=entry.identifier(),
+                        project_id=row.ref,
                         title=project.get("title"),
-                        reason="no_compatible_installable_version",
-                        detail=f"{details['installability_reason']}: {details['installability_message']}",
+                        reason="source_kind_mismatch",
+                        detail="Modrinth project_type is mod but the resolved version is not datapack-only; row kind datapack is inconsistent.",
                     )
                 )
                 continue
-            candidate.selection_type = _selection_type(entry)
-            candidate.why_selected = [entry.reason_selected] if entry.reason_selected else []
+            candidate = apply_modrinth_mod_datapack_edge_to_candidate(candidate, sel_ver or {})
+            edge_on = modrinth_mod_project_datapack_edge_applies(
+                project_type=project.get("project_type"), version=sel_ver or {}
+            )
+            if edge_on:
+                candidate = candidate.model_copy(update={"enabled_by_default": row.enabled_by_default})
+            else:
+                candidate = candidate.model_copy(
+                    update={
+                        "content_kind": row.kind,
+                        "content_placement": row.placement,
+                        "enabled_by_default": row.enabled_by_default,
+                    }
+                )
+            sel_notes = [row.reason_selected] if row.reason_selected else list(row.notes)
+            merged_why: list[str] = list(sel_notes)
+            for w in candidate.why_selected:
+                if w not in merged_why:
+                    merged_why.append(w)
+            candidate = candidate.model_copy(update={"why_selected": merged_why})
+            candidate.selection_type = _selection_type_from_normalized(row)
             candidate.matched_capabilities = sorted(infer_candidate_capabilities(candidate))
             candidates.append(candidate)
             seen_selected_keys.add(ident_key)
@@ -2019,38 +2245,64 @@ def _normalize_project_hit(hit: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _first_candidate(hit: dict[str, Any], versions: list[dict[str, Any]], *, loader: str, minecraft_version: str) -> CandidateMod | None:
-    return _installability_details(hit, versions, loader=loader, minecraft_version=minecraft_version)["candidate"]
+def _first_candidate(
+    hit: dict[str, Any],
+    versions: list[dict[str, Any]],
+    *,
+    loader: str,
+    minecraft_version: str,
+    require_loader_match: bool = True,
+) -> CandidateMod | None:
+    return _installability_details(
+        hit, versions, loader=loader, minecraft_version=minecraft_version, require_loader_match=require_loader_match
+    )["candidate"]
 
 
-def _installability_details(hit: dict[str, Any], versions: list[dict[str, Any]], *, loader: str, minecraft_version: str) -> dict[str, Any]:
+def _installability_details(
+    hit: dict[str, Any],
+    versions: list[dict[str, Any]],
+    *,
+    loader: str,
+    minecraft_version: str,
+    require_loader_match: bool = True,
+) -> dict[str, Any]:
     project_status = hit.get("status", "unknown")
     project_installable = project_status not in {"archived", "unlisted", "rejected", "withheld"}
-    loader_compatibility = _loader_compatibility(hit, versions, loader)
+    loader_compatibility = _loader_compatibility(hit, versions, loader, require_loader_match=require_loader_match)
     minecraft_version_compatibility = _minecraft_version_compatibility(hit, versions, minecraft_version)
     installable_file_availability = any(bool(version.get("files")) for version in versions)
     version_status = versions[0].get("status", "unknown") if versions else None
     invalid_metadata_reason: str | None = None
 
-    for version in versions:
-        if not _version_is_installable(version, loader, minecraft_version):
-            continue
-        try:
-            candidate = candidate_from_project_hit(_normalize_project_hit(hit), version)
-            return {
-                "installable_for_requested_target": True,
-                "installability_reason": None,
-                "installability_message": "Installable for requested target.",
-                "candidate": candidate,
-                "selected_version": version,
-                "loader_compatibility": True,
-                "minecraft_version_compatibility": True,
-                "installable_file_availability": True,
-                "project_status": project_status,
-                "version_status": version.get("status", "unknown"),
-            }
-        except (KeyError, ValueError, ValidationError) as exc:
-            invalid_metadata_reason = str(exc)
+    relax_iters = [False]
+    if require_loader_match and str(hit.get("project_type", "")).strip().lower() == "mod":
+        relax_iters.append(True)
+    for relax_mod_datapack_edge in relax_iters:
+        for version in versions:
+            if not modrinth_version_dict_installable(
+                version,
+                loader,
+                minecraft_version,
+                require_loader=require_loader_match,
+                relax_mod_datapack_edge=relax_mod_datapack_edge,
+            ):
+                continue
+            try:
+                candidate = candidate_from_project_hit(_normalize_project_hit(hit), version)
+                return {
+                    "installable_for_requested_target": True,
+                    "installability_reason": None,
+                    "installability_message": "Installable for requested target.",
+                    "candidate": candidate,
+                    "selected_version": version,
+                    "loader_compatibility": True,
+                    "minecraft_version_compatibility": True,
+                    "installable_file_availability": True,
+                    "project_status": project_status,
+                    "version_status": version.get("status", "unknown"),
+                }
+            except (KeyError, ValueError, ValidationError) as exc:
+                invalid_metadata_reason = str(exc)
 
     reason = _installability_reason(
         versions=versions,
@@ -2075,24 +2327,15 @@ def _installability_details(hit: dict[str, Any], versions: list[dict[str, Any]],
     }
 
 
-def _version_is_installable(version: dict[str, Any], loader: str, minecraft_version: str) -> bool:
-    loaders = [value.lower() for value in version.get("loaders", [])]
-    if loader.lower() not in loaders:
-        return False
-    if minecraft_version != "auto":
-        game_versions = [value.lower() for value in version.get("game_versions", [])]
-        if minecraft_version.lower() not in game_versions:
-            return False
-    if version.get("status", "listed") not in {"listed", "unlisted"}:
-        return False
-    if not version.get("files"):
-        return False
-    return True
-
-
-def _loader_compatibility(hit: dict[str, Any], versions: list[dict[str, Any]], loader: str) -> bool:
+def _loader_compatibility(hit: dict[str, Any], versions: list[dict[str, Any]], loader: str, *, require_loader_match: bool = True) -> bool:
+    if not require_loader_match:
+        return True
     loader = loader.lower()
     if any(loader in [value.lower() for value in version.get("loaders", [])] for version in versions):
+        return True
+    if str(hit.get("project_type", "")).strip().lower() == "mod" and any(
+        modrinth_version_loaders_effectively_datapack_only(v) for v in versions
+    ):
         return True
     return loader in [value.lower() for value in hit.get("loaders", [])]
 
@@ -2154,13 +2397,26 @@ def _installability_message(
 
 
 def _profile_from_selected(selected: SelectedModList) -> RequirementProfile:
+    keys: list[str] = [entry.slug or entry.modrinth_id or "" for entry in selected.mods]
+    keys.extend(entry.slug for entry in selected.content)
     return RequirementProfile(
         name=selected.name,
         summary=selected.summary,
         loader=selected.loader,
         minecraft_version=selected.minecraft_version,
-        search_keywords=[entry.slug or entry.modrinth_id or "" for entry in selected.mods],
+        search_keywords=keys,
     )
+
+
+def _selection_type_from_normalized(row: Any) -> str:
+    role = getattr(row, "role", "theme")
+    if role == "dependency":
+        return "dependency_added"
+    if role in {"foundation", "shader_support"}:
+        return "selected_foundation_mod"
+    if role == "optional":
+        return "optional_recommendation"
+    return "selected_theme_mod"
 
 
 def _selection_type(entry: SelectedModEntry) -> str:
@@ -3336,6 +3592,12 @@ def _replacement_slug(option: RepairOption) -> str | None:
 
 
 def _write_agent_report(report: AgentPackReport, output_dir: Path) -> None:
+    from mythweaver.validation.content_export_policy import (
+        collect_content_export_warnings,
+        content_sections_dict,
+        jjthunder_guidance_lines,
+    )
+
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "generation_report.json"
     md_path = output_dir / "generation_report.md"
@@ -3346,6 +3608,20 @@ def _write_agent_report(report: AgentPackReport, output_dir: Path) -> None:
         ]
     )
     report.artifacts = list(report.generated_artifacts)
+    pack_like_mods = [*report.user_selected_mods, *report.dependency_added_mods]
+    if report.selected_mods and not pack_like_mods:
+        pack_like_mods = list(report.selected_mods)
+    content_warnings = collect_content_export_warnings(pack_like_mods)
+    jj_lines = jjthunder_guidance_lines(pack_like_mods)
+    sections = content_sections_dict(
+        ResolvedPack(
+            name=report.name,
+            minecraft_version=report.minecraft_version,
+            loader=report.loader,
+            selected_mods=pack_like_mods,
+        )
+    )
+    report.content_sections = sections
     json_path.write_text(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True), encoding="utf-8")
     lines = [
         f"# {report.name}",
@@ -3371,6 +3647,31 @@ def _write_agent_report(report: AgentPackReport, output_dir: Path) -> None:
         "",
         "## Top Issues",
         *([f"- {warning}" for warning in report.compatibility_warnings] or ["- None."]),
+        "",
+        "## Content export warnings",
+        *([f"- {warning}" for warning in content_warnings] or ["- None."]),
+        "",
+        "## JJThunder-style guidance",
+        *([f"- {line}" for line in jj_lines] or ["- Not triggered."]),
+        "",
+        "## Mods",
+        *[f"- {m.title} ({m.slug}) [{getattr(m, 'content_kind', 'mod')}]" for m in pack_like_mods if getattr(m, "content_kind", "mod") == "mod"],
+        "",
+        "## Datapacks",
+        *[f"- {m.title} ({m.slug})" for m in pack_like_mods if getattr(m, "content_kind", "mod") == "datapack"],
+        "",
+        "## Resource packs",
+        *[f"- {m.title} ({m.slug}) — not enabled by default" for m in pack_like_mods if getattr(m, "content_kind", "mod") == "resourcepack"],
+        "",
+        "## Shader packs",
+        *[f"- {m.title} ({m.slug}) — optional; not enabled by default; Iris typically required on Fabric" for m in pack_like_mods if getattr(m, "content_kind", "mod") == "shaderpack"],
+        "",
+        "## Manual world-creation content",
+        *[
+            f"- {m.title} ({m.slug})"
+            for m in pack_like_mods
+            if getattr(m, "content_kind", "mod") == "datapack" and getattr(m, "content_placement", None) == "manual_world_creation"
+        ],
         "",
         "## User Selected Mods",
         *[f"- {mod.title} ({mod.slug})" for mod in report.user_selected_mods],
@@ -3435,6 +3736,10 @@ def _removed_reason(reason: str) -> str:
         "not_a_mod_project": "invalid slug/project id",
         "project_not_installable": "unavailable mod",
         "no_compatible_installable_version": "unsupported loader/version",
+        "optional_not_resolved": "optional row skipped",
+        "source_kind_mismatch": "kind/source mismatch",
+        "curseforge_not_configured": "curseforge api key missing",
+        "invalid_metadata": "invalid metadata",
         "missing_dependency": "dependency conflict",
         "dependency_resolution": "dependency conflict",
     }

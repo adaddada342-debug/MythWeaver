@@ -68,16 +68,30 @@ def build_prism_instance(
     instance_dir = Path(instances_root) / _instance_id(pack.name)
     minecraft_dir = instance_dir / ".minecraft"
     mods_dir = minecraft_dir / "mods"
+    rp_dir = minecraft_dir / "resourcepacks"
+    sp_dir = minecraft_dir / "shaderpacks"
     mods_dir.mkdir(parents=True, exist_ok=True)
+    rp_dir.mkdir(parents=True, exist_ok=True)
+    sp_dir.mkdir(parents=True, exist_ok=True)
 
     _write_instance_cfg(instance_dir / "instance.cfg", pack, memory_mb)
     _write_mmc_pack(instance_dir / "mmc-pack.json", pack)
 
     for mod in pack.selected_mods:
+        kind = getattr(mod, "content_kind", "mod") or "mod"
+        if kind == "datapack":
+            continue
         source = downloaded_files.get(mod.project_id)
         if source is None:
             raise FileNotFoundError(f"missing downloaded file for {mod.project_id}")
-        destination = mods_dir / safe_file_name(mod.primary_file().filename)
+        if kind == "mod":
+            destination = mods_dir / safe_file_name(mod.primary_file().filename)
+        elif kind == "resourcepack":
+            destination = rp_dir / safe_file_name(mod.primary_file().filename)
+        elif kind == "shaderpack":
+            destination = sp_dir / safe_file_name(mod.primary_file().filename)
+        else:
+            destination = mods_dir / safe_file_name(mod.primary_file().filename)
         shutil.copy2(source, destination)
 
     return BuildArtifact(

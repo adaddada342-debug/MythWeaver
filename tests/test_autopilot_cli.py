@@ -124,12 +124,52 @@ class AutopilotCliTests(unittest.TestCase):
             code = _fallback_main(["autopilot", str(selected_path), "--output-root", str(root)])
 
         output = stdout.getvalue()
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 1)
         self.assertIn("BLOCKED", output)
         self.assertIn("Proof client_initialized", output)
         self.assertIn("Diagnosis: missing_fabric_api", output)
         self.assertIn("Applied: blocked add_mod fabric-api", output)
         self.assertIn("Report:", output)
+
+    def test_exit_code_for_autopilot_report_maps_agent_statuses(self):
+        from mythweaver.autopilot.contracts import AutopilotBlocker, AutopilotReport
+        from mythweaver.cli.main import exit_code_for_autopilot_report
+
+        def report(status, blockers=None):
+            return AutopilotReport(
+                status=status,
+                final_minecraft_version=None,
+                final_loader=None,
+                final_loader_version=None,
+                attempts=[],
+                final_instance_path=None,
+                final_export_path=None,
+                summary=status,
+                warnings=[],
+                blockers=blockers or [],
+            )
+
+        self.assertEqual(exit_code_for_autopilot_report(report("verified_playable")), 0)
+        self.assertEqual(exit_code_for_autopilot_report(report("blocked")), 1)
+        self.assertEqual(exit_code_for_autopilot_report(report("max_attempts_reached")), 2)
+        self.assertEqual(exit_code_for_autopilot_report(report("failed")), 2)
+        self.assertEqual(
+            exit_code_for_autopilot_report(
+                report(
+                    "failed",
+                    [
+                        AutopilotBlocker(
+                            kind="invalid_request",
+                            message="bad",
+                            severity="fatal",
+                            agent_can_retry=True,
+                            user_action_required=True,
+                        )
+                    ],
+                )
+            ),
+            3,
+        )
 
 
 if __name__ == "__main__":

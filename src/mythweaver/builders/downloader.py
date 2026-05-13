@@ -21,13 +21,15 @@ def verify_file_hashes(path: Path, expected_hashes: dict[str, str]) -> bool:
     path = Path(path)
     if not path.is_file():
         return False
+    checked = False
     for algorithm in ("sha1", "sha512"):
         expected = expected_hashes.get(algorithm)
         if not expected:
-            return False
+            continue
+        checked = True
         if _hash_file(path, algorithm) != expected.lower():
             return False
-    return True
+    return checked
 
 
 def _download(url: str, destination: Path, user_agent: str) -> None:

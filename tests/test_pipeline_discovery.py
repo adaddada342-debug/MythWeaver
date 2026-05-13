@@ -57,7 +57,7 @@ class FakeModrinth:
     async def search_projects(self, plan):
         return self.searches.get(plan.query, {"hits": []})
 
-    async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False):
+    async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False, use_loader_filter=True, **kwargs):
         return self.versions.get(project_id_or_slug, [])
 
 

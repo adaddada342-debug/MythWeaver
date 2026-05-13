@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from pydantic import BaseModel
 
+from mythweaver.autopilot.contracts import AutopilotRequest
+from mythweaver.autopilot.loop import run_autopilot
 from mythweaver.core.settings import Settings
 from mythweaver.schemas.contracts import (
     CandidateMod,
@@ -136,6 +139,30 @@ def create_app(settings: Settings | None = None):
     @app.get("/v1/tools")
     def tools() -> list[dict[str, str]]:
         return facade.list_tools()
+
+    @app.post("/v1/autopilot/run")
+    async def autopilot_run(request: AutopilotRequest):
+        return await run_autopilot(request)
+
+    @app.get("/v1/autopilot/runs/{run_id}")
+    def autopilot_run_status(run_id: str, output_root: str | None = None):
+        from fastapi import HTTPException
+
+        root = Path(output_root or Path.cwd() / ".test-output" / "autopilot") / "runs" / run_id
+        report_path = root / "autopilot_report.json"
+        timeline_path = root / "timeline.jsonl"
+        if not report_path.is_file():
+            raise HTTPException(status_code=404, detail={"kind": "autopilot_run_not_found", "run_id": run_id})
+        timeline_tail: list[dict[str, object]] = []
+        if timeline_path.is_file():
+            timeline_tail = [json.loads(line) for line in timeline_path.read_text(encoding="utf-8").splitlines()[-20:] if line.strip()]
+        return {
+            "run_id": run_id,
+            "run_dir": str(root),
+            "report": json.loads(report_path.read_text(encoding="utf-8")),
+            "timeline_path": str(timeline_path) if timeline_path.is_file() else None,
+            "timeline_tail": timeline_tail,
+        }
 
     @app.post("/v1/search_modrinth")
     async def search_modrinth(plan: SearchPlan):

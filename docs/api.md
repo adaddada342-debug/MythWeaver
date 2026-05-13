@@ -68,6 +68,18 @@ runtime file build, private runtime validation, deterministic issue classificati
 planning, and retry. The output is an `AutopilotReport` with status
 `verified_playable`, `blocked`, `max_attempts_reached`, or `failed`.
 
+This is the canonical backend operation for local agents. It is exposed through:
+
+- CLI: `python -m mythweaver.cli.main autopilot selected_mods.json --json`
+- MCP: `run_autopilot`
+- REST: `POST /v1/autopilot/run`
+
+`--json` prints only valid report JSON to stdout. Each run has a durable `run_id` and writes under
+`<output_root>/runs/<run_id>/`. Reports include `run_dir`, `request_path`, `timeline_path`,
+`report_paths`, `artifacts`, `attempts`, `diagnoses`, `proof`, and machine-readable `blockers`.
+Agents should use `timeline.jsonl` for progress streaming and blocker fields for decisions instead
+of scraping human text.
+
 Autopilot never mutates the original `selected_mods.json`, never treats manual-only or direct URL
 sources as trusted runtime jars, and never applies manual or dangerous repair actions automatically.
 Fabric is the only private runtime loader in V1. Forge, NeoForge, and Quilt produce
@@ -86,8 +98,23 @@ action kinds. The safe automatic repair planner only applies supported safe diag
 trusted missing dependency additions. Loader mismatches, Java incompatibility, severe mixin failures,
 environment mismatches, and unknown failures remain manual review items.
 
+Blocked runs include `AutopilotBlocker` objects with `kind`, `severity`, `agent_can_retry`,
+`user_action_required`, `suggested_next_step`, `related_attempt`, and `evidence_path`. Common kinds
+include `unsupported_loader_runtime`, `source_policy_blocked`, `smoke_test_proof_missing`,
+`weak_runtime_proof`, `no_safe_repair_available`, `max_attempts_reached`, `repeated_failure`,
+`manual_repair_required`, `dangerous_repair_blocked`, `environment_missing_java`,
+`runtime_setup_failed`, and `invalid_request`.
+
 Manual real-launch guidance lives in `docs/autopilot-smoke-test.md`; API and unit tests remain
 offline/fixture-based.
+
+## `get_autopilot_run`
+
+Input: `run_id` and optional `output_root`.
+
+Available through MCP and REST (`GET /v1/autopilot/runs/{run_id}`). Returns the persisted
+`autopilot_report.json` and a bounded tail of `timeline.jsonl` for local agents that reconnect to a
+run.
 
 ## `source_search`
 

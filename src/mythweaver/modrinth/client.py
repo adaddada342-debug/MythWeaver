@@ -10,6 +10,7 @@ from typing import Any
 
 from mythweaver.db.cache import SQLiteCache
 from mythweaver.modrinth.facets import build_search_facets
+from mythweaver.catalog.content_kinds import content_kind_from_modrinth_project_type
 from mythweaver.schemas.contracts import (
     CandidateMod,
     DependencyRecord,
@@ -61,11 +62,13 @@ class ModrinthClient:
         loader: str,
         minecraft_version: str,
         include_changelog: bool = False,
+        use_loader_filter: bool = True,
     ) -> list[dict[str, Any]]:
-        params = {
-            "loaders": json.dumps([loader]),
+        params: dict[str, str] = {
             "include_changelog": "true" if include_changelog else "false",
         }
+        if use_loader_filter:
+            params["loaders"] = json.dumps([loader])
         if minecraft_version != "auto":
             params["game_versions"] = json.dumps([minecraft_version])
         versions = await self.get_json(f"/project/{project_id_or_slug}/version", params=params)
@@ -181,6 +184,7 @@ def candidate_from_project_hit(hit: dict[str, Any], version: dict[str, Any]) -> 
         downloads=version.get("downloads", 0),
     )
     project_id = hit.get("project_id") or hit.get("id") or selected_version.project_id
+    kind, raw_pt = content_kind_from_modrinth_project_type(hit.get("project_type"))
     return CandidateMod(
         project_id=project_id,
         slug=hit.get("slug", project_id),
@@ -196,4 +200,6 @@ def candidate_from_project_hit(hit: dict[str, Any], version: dict[str, Any]) -> 
         game_versions=hit.get("versions", selected_version.game_versions),
         selected_version=selected_version,
         dependency_count=len(dependencies),
+        content_kind=kind,
+        platform_project_type=raw_pt,
     )

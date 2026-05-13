@@ -1,0 +1,33 @@
+{
+  "name": "CREATE: GLOBAL DOMINION (content layer demo)",
+  "summary": "Minimal SelectedModList showing mods[] plus content[]: verified Modrinth resource pack default-dark-mode (kind resourcepack), and JJThunder To The Max as a Modrinth datapack row (project_type mod + datapack-only loaders) resolved via the narrow edge path to manual_world_creation. Fabric baseline mods for fast dry-run resolves.",
+  "minecraft_version": "1.20.1",
+  "loader": "fabric",
+  "mods": [
+    {"slug": "fabric-api", "role": "foundation", "reason_selected": "Fabric API baseline for dry-run resolves."},
+    {"slug": "sodium", "role": "foundation", "reason_selected": "Renderer baseline (pairs with content-export Sodium+shader warnings when shaders are added)."}
+  ],
+  "content": [
+    {
+      "slug": "default-dark-mode",
+      "source": "modrinth",
+      "kind": "resourcepack",
+      "required": false,
+      "notes": ["Verified Modrinth resourcepack; installs under resourcepacks/ in .mrpack and Prism exports; not enabled by default."]
+    },
+    {
+      "slug": "jjthunder-to-the-max",
+      "source": "modrinth",
+      "kind": "datapack",
+      "placement": "manual_world_creation",
+      "required": false,
+      "notes": [
+        "JJThunder To The Max is intentionally manual world-creation content.",
+        "It is not copied into mods/ and is omitted from .mrpack files[].",
+        "It must be added when creating a new world (save's datapacks folder); do not retrofit onto existing worlds without a backup."
+      ]
+    }
+  ],
+  "shader_recommendations": [],
+  "notes": "JJThunder is listed as a Modrinth content[] datapack row: MythWeaver applies the mod-project + datapack-only file edge (see AGENTS.md Content kinds). It is not bundled into exports; follow report/datapack sections and JJThunder guidance. Datapack rows use placement manual_world_creation unless future starter-world support exists (not implemented)."
+}

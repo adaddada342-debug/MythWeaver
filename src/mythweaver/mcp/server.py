@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from mythweaver.autopilot.contracts import AutopilotRequest
+from mythweaver.autopilot.loop import run_autopilot
 from mythweaver.core.settings import get_settings
 from mythweaver.schemas.contracts import (
     CandidateMod,
@@ -22,6 +24,23 @@ from mythweaver.tools.facade import AgentToolFacade
 def tool_definitions() -> list[dict[str, Any]]:
     candidate_array_schema = {"type": "array", "items": CandidateMod.model_json_schema()}
     return [
+        {
+            "name": "run_autopilot",
+            "description": "Canonical backend operation: resolve, build, verify with private runtime proof, diagnose, safely repair, and return an agent-readable AutopilotReport.",
+            "input_schema": AutopilotRequest.model_json_schema(),
+        },
+        {
+            "name": "get_autopilot_run",
+            "description": "Read a durable Autopilot run report and timeline summary from a runs/<run_id> artifact folder.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "string"},
+                    "output_root": {"type": ["string", "null"]},
+                },
+                "required": ["run_id"],
+            },
+        },
         {
             "name": "search_mods",
             "description": "Search Modrinth with agent-oriented installability metadata.",
@@ -262,6 +281,10 @@ def tool_definitions() -> list[dict[str, Any]]:
 
 
 async def call_tool(facade: AgentToolFacade, name: str, arguments: dict[str, Any]) -> Any:
+    if name == "run_autopilot":
+        return await run_autopilot(AutopilotRequest.model_validate(arguments))
+    if name == "get_autopilot_run":
+        return _read_autopilot_run(arguments["run_id"], arguments.get("output_root"))
     if name == "search_mods":
         return await facade.search_mods(**arguments)
     if name == "inspect_mod":
@@ -359,6 +382,25 @@ async def call_tool(facade: AgentToolFacade, name: str, arguments: dict[str, Any
         )
         return {"candidates": candidates, "rejected": rejected}
     raise ValueError(f"unknown tool: {name}")
+
+
+def _read_autopilot_run(run_id: str, output_root: str | None) -> dict[str, Any]:
+    root = Path(output_root or Path.cwd() / ".test-output" / "autopilot") / "runs" / run_id
+    report_path = root / "autopilot_report.json"
+    timeline_path = root / "timeline.jsonl"
+    if not report_path.is_file():
+        raise FileNotFoundError(f"Autopilot run report not found: {report_path}")
+    timeline_tail: list[dict[str, Any]] = []
+    if timeline_path.is_file():
+        lines = timeline_path.read_text(encoding="utf-8").splitlines()
+        timeline_tail = [json.loads(line) for line in lines[-20:] if line.strip()]
+    return {
+        "run_id": run_id,
+        "run_dir": str(root),
+        "report": json.loads(report_path.read_text(encoding="utf-8")),
+        "timeline_path": str(timeline_path) if timeline_path.is_file() else None,
+        "timeline_tail": timeline_tail,
+    }
 
 
 def _jsonable(value: Any) -> Any:

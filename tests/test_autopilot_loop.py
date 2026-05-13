@@ -1,4 +1,5 @@
 import hashlib
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -120,6 +121,9 @@ class AutopilotLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report.final_proof.proof_level, "stable_60")
         self.assertEqual(len(report.attempts), 2)
         self.assertEqual(report.attempts[0].actions_applied[0].status, "applied")
+        events = [json.loads(line) for line in Path(report.timeline_path).read_text(encoding="utf-8").splitlines()]
+        self.assertIn("repair_applied", {event["type"] for event in events})
+        self.assertIn("run_completed", {event["type"] for event in events})
         self.assertNotIn("fabric-api", selected_path.read_text(encoding="utf-8"))
 
     async def test_autopilot_stops_when_same_issue_repeats(self):
@@ -323,8 +327,9 @@ class AutopilotLoopTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertNotEqual(report.status, "verified_playable")
-        self.assertEqual(report.status, "max_attempts_reached")
+        self.assertEqual(report.status, "blocked")
         self.assertEqual(report.attempts[0].proof.proof_level, "client_initialized")
+        self.assertIn("weak_runtime_proof", {blocker.kind for blocker in report.blockers})
         self.assertNotIn("fabric-api", selected_path.read_text(encoding="utf-8"))
 
 

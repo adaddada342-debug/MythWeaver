@@ -11,7 +11,7 @@ def build_search_facets(plan: SearchPlan) -> str:
 
     facets: list[list[str]] = [[f"project_type:{plan.project_type}"]]
     loader = modrinth_loader_category(plan.loader)
-    if loader:
+    if loader and plan.project_type in {"mod", "modpack"}:
         facets.append([f"categories:{loader}"])
     if plan.minecraft_version != "auto":
         facets.append([f"versions:{plan.minecraft_version}"])

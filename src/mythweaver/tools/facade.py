@@ -466,6 +466,8 @@ class AgentToolFacade:
             downloaded_files: dict[str, Path] = {}
             cache_root = output_dir / "cache" / "mods"
             for mod in pack.selected_mods:
+                if getattr(mod, "content_kind", "mod") == "datapack" and getattr(mod, "content_placement", None) == "manual_world_creation":
+                    continue
                 file = mod.primary_file()
                 destination = cache_root / safe_file_name(mod.project_id) / safe_file_name(file.filename)
                 downloaded_files[mod.project_id] = await download_mod_file(

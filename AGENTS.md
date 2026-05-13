@@ -35,12 +35,25 @@ python -m mythweaver.cli.main build-from-list selected_mods.json --sources modri
 For Autopilot V1 runtime verification, use:
 
 ```powershell
-python -m mythweaver.cli.main autopilot selected_mods.json --sources modrinth,curseforge --target-export local_instance --loader fabric
+python -m mythweaver.cli.main autopilot selected_mods.json --sources modrinth,curseforge --target-export local_instance --loader fabric --json
 ```
 
 Autopilot requires MythWeaver smoke-test proof by default. `verified_playable` means the private
 Fabric runtime saw smoke-test world-join and stability markers, not just client-start/main-menu log
 lines. Forge, NeoForge, and Quilt still return unsupported runtime issues in the private runtime.
+Use the returned `run_id`, `timeline_path`, `report_paths`, and `blockers` fields as the stable
+agent contract. Do not scrape human text when JSON or MCP `run_autopilot` is available.
+
+## Content kinds
+
+MythWeaver classifies selected artifacts into **content kinds** for resolution, validation, and export:
+
+- **mod** — normal Fabric/Forge/Quilt/NeoForge mod jars (loader + game-version resolution, dependency expansion where applicable).
+- **datapack** — data-pack zips; in v1 they use **`manual_world_creation`** placement unless future starter-world support exists (not implemented). They are **not** auto-downloaded for bundle export, **not** listed in Modrinth `.mrpack` `files[]`, and **not** copied into Prism `mods/`. Reports list them under datapack / manual world-creation sections with export warnings.
+- **resourcepack** — exported under `overrides/resourcepacks/` in `.mrpack` and to `.minecraft/resourcepacks/` for Prism; **not enabled by default**.
+- **shaderpack** — exported under `overrides/shaderpacks/` and `.minecraft/shaderpacks/`; **shaders are not enabled by default** (players typically need Iris on Fabric when using shader packs alongside Sodium).
+
+**Modrinth edge case:** If Modrinth `project_type` is **`mod`** but the **selected compatible version** declares loaders such as **`["datapack"]`** with **no** Fabric/Forge/Quilt/NeoForge loader on that version, MythWeaver treats the row as a **`manual_world_creation` datapack**, preserves **`platform_project_type="mod"`** for transparency, and records the mismatch note: *Platform project_type is mod, but selected file is datapack-only; treating as manual world-creation datapack.* Mixed projects (both mod-loader and datapack-only versions) still resolve to a normal **mod** file when a matching mod-loader version exists.
 
 ## Required Flow
 

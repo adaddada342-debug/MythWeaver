@@ -95,7 +95,7 @@ class FakeAgentModrinth:
             raise KeyError(project_id_or_slug)
         return dict(self.projects[project_id_or_slug])
 
-    async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False):
+    async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False, use_loader_filter=True, **kwargs):
         return list(self.versions.get(project_id_or_slug, []))
 
 

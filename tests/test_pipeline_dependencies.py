@@ -22,7 +22,7 @@ class DependencyModrinth:
             }
         return {}
 
-    async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False):
+    async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False, use_loader_filter=True, **kwargs):
         if project_id_or_slug == "fabric-api":
             return [version_payload("fabric-api", game_versions=[minecraft_version])]
         return []

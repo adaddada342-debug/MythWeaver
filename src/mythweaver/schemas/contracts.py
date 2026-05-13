@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from mythweaver.catalog.content_kinds import ContentKind, ContentPlacement
+
 SupportedLoader = Literal[
     "fabric",
     "forge",
@@ -148,7 +150,7 @@ class SearchPlan(AgentSafeModel):
     query: str
     minecraft_version: str = "auto"
     loader: Loader = "fabric"
-    project_type: Literal["mod", "modpack", "resourcepack", "shader"] = "mod"
+    project_type: Literal["mod", "modpack", "resourcepack", "shader", "datapack"] = "mod"
     categories: list[str] = Field(default_factory=list)
     client_side: SideSupport | None = None
     server_side: SideSupport | None = None
@@ -193,6 +195,9 @@ class SelectedModEntry(AgentSafeModel):
     source_url: str | None = None
     preferred_source: Literal["modrinth", "curseforge", "github", "planetminecraft", "local", "direct_url", "auto"] | None = None
     allowed_sources: list[Literal["modrinth", "curseforge", "github", "planetminecraft", "local", "direct_url"]] = Field(default_factory=list)
+    kind: ContentKind | None = None
+    placement: ContentPlacement | None = None
+    enabled_by_default: bool | None = None
 
     @field_validator("slug", "modrinth_id", "source_project_id", "source_file_id", "source_slug", "source_url", "source_ref")
     @classmethod
@@ -222,8 +227,43 @@ class SelectedModEntry(AgentSafeModel):
             raise ValueError("selected mod entry requires slug, modrinth_id, or source-specific ref")
         return self
 
+    @model_validator(mode="after")
+    def datapack_placement_entry(self) -> "SelectedModEntry":
+        if self.kind == "datapack" and self.placement not in (None, "manual_world_creation"):
+            raise ValueError("datapack selected rows must use placement manual_world_creation in MythWeaver v1")
+        return self
+
     def identifier(self) -> str:
         return self.source_ref or self.source_project_id or self.source_slug or self.source_url or self.modrinth_id or self.slug or ""
+
+
+class PackContentEntry(AgentSafeModel):
+    """Structured non-mod (or mod) row for `SelectedModList.content`; sources are official APIs only."""
+
+    slug: str
+    source: Literal["modrinth", "curseforge"]
+    kind: ContentKind
+    required: bool = True
+    placement: ContentPlacement | None = None
+    enabled_by_default: bool | None = None
+    notes: list[str] = Field(default_factory=list)
+    reason: str | None = None
+    conflicts: list[str] = Field(default_factory=list)
+
+    @field_validator("slug")
+    @classmethod
+    def strip_slug(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("slug must not be empty")
+        return value
+
+
+    @model_validator(mode="after")
+    def datapack_placement_only(self) -> "PackContentEntry":
+        if self.kind == "datapack" and self.placement not in (None, "manual_world_creation"):
+            raise ValueError("datapack content rows must use placement manual_world_creation in MythWeaver v1")
+        return self
 
 
 class SelectedModList(AgentSafeModel):
@@ -232,6 +272,7 @@ class SelectedModList(AgentSafeModel):
     minecraft_version: str
     loader: Loader = "fabric"
     mods: list[SelectedModEntry] = Field(default_factory=list)
+    content: list[PackContentEntry] = Field(default_factory=list)
     shader_recommendations: list[str] = Field(default_factory=list)
     notes: str | None = None
     repair_changelog: list[dict[str, Any]] = Field(default_factory=list)
@@ -458,14 +499,16 @@ class ModFile(AgentSafeModel):
 
     @field_validator("hashes")
     @classmethod
-    def require_modrinth_hashes(cls, hashes: dict[str, str]) -> dict[str, str]:
-        missing = {"sha1", "sha512"} - set(hashes)
-        if missing:
-            raise ValueError(f"missing required hashes: {', '.join(sorted(missing))}")
-        if not _is_hex(hashes["sha1"], 40):
+    def require_download_hashes(cls, hashes: dict[str, str]) -> dict[str, str]:
+        """Modrinth supplies sha1+sha512; CurseForge often supplies sha1 only — at least one strong hash is required."""
+        sha1 = hashes.get("sha1")
+        sha512 = hashes.get("sha512")
+        if sha1 and not _is_hex(sha1, 40):
             raise ValueError("sha1 must be 40 hexadecimal characters")
-        if not _is_hex(hashes["sha512"], 128):
+        if sha512 and not _is_hex(sha512, 128):
             raise ValueError("sha512 must be 128 hexadecimal characters")
+        if not sha1 and not sha512:
+            raise ValueError("hashes must include sha1 and/or sha512")
         return hashes
 
     @field_validator("url")
@@ -548,6 +591,10 @@ class CandidateMod(AgentSafeModel):
         "dependency_added",
         "optional_recommendation",
     ] = "selected_theme_mod"
+    content_kind: ContentKind = "mod"
+    content_placement: ContentPlacement | None = None
+    platform_project_type: str | None = None
+    enabled_by_default: bool | None = None
 
     @field_validator("categories", "loaders", "game_versions")
     @classmethod
@@ -1123,6 +1170,9 @@ class SourceFileCandidate(AgentSafeModel):
         "unsupported",
     ] = "metadata_incomplete"
     warnings: list[str] = Field(default_factory=list)
+    content_kind: ContentKind = "mod"
+    content_placement: ContentPlacement | None = None
+    enabled_by_default: bool | None = None
 
 
 class SourceSearchResult(AgentSafeModel):
@@ -1341,3 +1391,4 @@ class AgentPackReport(AgentSafeModel):
     final_artifact_validation_status: str | None = None
     final_artifact_validation_report_path: str | None = None
     final_artifact_validation_summary: str | None = None
+    content_sections: dict[str, Any] = Field(default_factory=dict)

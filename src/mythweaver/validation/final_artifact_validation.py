@@ -1,9 +1,10 @@
-"""Validate downloaded Fabric mod jars: fabric.mod.json metadata, duplicates, Minecraft bounds."""
+"""Validate downloaded artifacts: Fabric mod jars, duplicate mod IDs, and non-mod zip layouts."""
 
 from __future__ import annotations
 
 import json
 import re
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,44 @@ def _version_tuple(s: str) -> tuple[int, ...]:
 def _version_rank(mod: CandidateMod) -> tuple[int, tuple[int, ...], str]:
     vtype_rank = {"release": 4, "beta": 3, "alpha": 2}.get(mod.selected_version.version_type, 3)
     return (vtype_rank, _version_tuple(mod.selected_version.version_number), mod.selected_version.version_number)
+
+
+def _content_kind(mod: CandidateMod) -> str:
+    return getattr(mod, "content_kind", "mod") or "mod"
+
+
+def infer_zip_layout_kind(path: Path) -> str | None:
+    """Best-effort zip root layout → internal content kind."""
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = [n.replace("\\", "/") for n in zf.namelist()]
+    except (zipfile.BadZipFile, OSError):
+        return None
+    if any(n.startswith("data/") for n in names):
+        return "datapack"
+    if any(n == "shaders" or n.startswith("shaders/") for n in names):
+        return "shaderpack"
+    if any(n.startswith("assets/") for n in names):
+        return "resourcepack"
+    return None
+
+
+def inspect_non_mod_row(mod: CandidateMod, path: Path, *, target_minecraft: str) -> dict[str, Any]:
+    del target_minecraft  # reserved for future pack_format checks
+    kind = _content_kind(mod)
+    row: dict[str, Any] = {
+        "project_id": mod.project_id,
+        "slug": mod.slug,
+        "jar_filename": mod.primary_file().filename,
+        "jar_path": str(path),
+        "content_kind": kind,
+    }
+    inferred = infer_zip_layout_kind(path)
+    row["zip_inferred_kind"] = inferred
+    if inferred and inferred != kind:
+        row["suspicious_reason"] = "zip_kind_mismatch"
+        row["suspicious_detail"] = f"expected {kind}, zip layout looks like {inferred}"
+    return row
 
 
 def inspect_jar_row(
@@ -70,7 +109,7 @@ def validate_and_filter_resolved_pack(
     target_minecraft: str,
 ) -> tuple[ResolvedPack, dict[str, Path], dict[str, Any], bool]:
     """
-    Inspect jars, drop blocklisted / wrong-Minecraft jars, collapse duplicate Fabric mod IDs.
+    Inspect jars/zips, drop blocklisted / wrong-Minecraft jars, collapse duplicate Fabric mod IDs.
 
     Returns (filtered_pack, filtered_downloaded_files, report_dict, validation_ok).
     """
@@ -80,12 +119,23 @@ def validate_and_filter_resolved_pack(
     missing_downloaded_jars: list[dict[str, str]] = []
 
     for mod in pack.selected_mods:
+        kind = _content_kind(mod)
+        placement = getattr(mod, "content_placement", None)
+        if kind == "datapack" and placement == "manual_world_creation":
+            inspection_by_project[mod.project_id] = {"skipped": "manual_datapack_not_bundled"}
+            continue
+
         jp = downloaded_files.get(mod.project_id)
         if jp is None or not jp.is_file():
             suspicious_jars.append({"project_id": mod.project_id, "slug": mod.slug, "reason": "missing_downloaded_file"})
             missing_downloaded_jars.append({"project_id": mod.project_id, "slug": mod.slug})
             continue
-        inspection = inspect_jar_row(mod, jp, target_minecraft=target_minecraft)
+
+        if kind == "mod":
+            inspection = inspect_jar_row(mod, jp, target_minecraft=target_minecraft)
+        else:
+            inspection = inspect_non_mod_row(mod, jp, target_minecraft=target_minecraft)
+
         inspection_by_project[mod.project_id] = inspection
         if inspection.get("blocked_reason"):
             blocked_jars.append(
@@ -103,6 +153,11 @@ def validate_and_filter_resolved_pack(
 
     keep_after_block: list[CandidateMod] = []
     for mod in pack.selected_mods:
+        kind = _content_kind(mod)
+        placement = getattr(mod, "content_placement", None)
+        if kind == "datapack" and placement == "manual_world_creation":
+            keep_after_block.append(mod)
+            continue
         jp = downloaded_files.get(mod.project_id)
         if jp is None or not jp.is_file():
             continue
@@ -114,6 +169,8 @@ def validate_and_filter_resolved_pack(
     by_fid: dict[str, list[CandidateMod]] = {}
     unkeyed: list[CandidateMod] = []
     for mod in keep_after_block:
+        if _content_kind(mod) != "mod":
+            continue
         jp = downloaded_files[mod.project_id]
         raw = read_root_fabric_mod_json(jp)
         if not raw:
@@ -165,6 +222,10 @@ def validate_and_filter_resolved_pack(
         if mod.project_id not in winner_ids:
             winner_ids.add(mod.project_id)
 
+    for mod in keep_after_block:
+        if _content_kind(mod) != "mod":
+            winner_ids.add(mod.project_id)
+
     new_selected = [m for m in pack.selected_mods if m.project_id in winner_ids]
 
     new_pack = ResolvedPack(
@@ -207,7 +268,9 @@ def validate_and_filter_resolved_pack(
         report["status"] = "failed"
     if any(s.get("suspicious_reason") == "missing_root_fabric_mod_json" for s in suspicious_jars):
         report["mods_missing_fabric_manifest"] = [
-            {"project_id": s.get("project_id"), "slug": s.get("slug")} for s in suspicious_jars if s.get("suspicious_reason") == "missing_root_fabric_mod_json"
+            {"project_id": s.get("project_id"), "slug": s.get("slug")}
+            for s in suspicious_jars
+            if s.get("suspicious_reason") == "missing_root_fabric_mod_json"
         ]
         if report["status"] == "passed":
             report["status"] = "warnings"

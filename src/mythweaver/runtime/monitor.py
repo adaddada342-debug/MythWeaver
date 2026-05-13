@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -142,7 +144,12 @@ def monitor_command(
 
 
 def _popen(command: list[str]) -> ProcessLike:
-    return cast(ProcessLike, subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False))
+    kwargs: dict[str, Any] = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True, "shell": False}
+    if os.name == "nt":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    else:
+        kwargs["start_new_session"] = True
+    return cast(ProcessLike, subprocess.Popen(command, **kwargs))
 
 
 def _communicate_and_classify(
@@ -323,6 +330,27 @@ def _fatal_issues(text: str) -> list[RuntimeIssue]:
 
 
 def _kill_process(process: ProcessLike) -> None:
+    pid = getattr(process, "pid", None)
+    if isinstance(pid, int):
+        if os.name == "nt":
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+                return
+            except Exception:
+                pass
+        else:
+            try:
+                killpg = getattr(os, "killpg", None)
+                if callable(killpg):
+                    killpg(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+                    return
+            except Exception:
+                pass
     try:
         process.kill()
     except Exception:

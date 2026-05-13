@@ -158,7 +158,7 @@ class DependencyHydrationRepairTests(unittest.IsolatedAsyncioTestCase):
                     "versions": ["1.20.1"],
                 }
 
-            async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False):
+            async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False, use_loader_filter=True, **kwargs):
                 return [version_payload("fabric-api", game_versions=[minecraft_version])]
 
         main = candidate("main", "Main", "Requires Fabric API")
@@ -203,7 +203,7 @@ class SelectionGateRepairTests(unittest.IsolatedAsyncioTestCase):
                     ]
                 }
 
-            async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False):
+            async def list_project_versions(self, project_id_or_slug, *, loader, minecraft_version, include_changelog=False, use_loader_filter=True, **kwargs):
                 return [version_payload(project_id_or_slug, game_versions=["1.20.1"])]
 
         class GateFacade(FakeFacade):

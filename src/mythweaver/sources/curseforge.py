@@ -8,6 +8,10 @@ from datetime import datetime
 from typing import Any, Callable, Literal, cast
 
 from mythweaver.catalog.loaders import curseforge_loader_name, normalize_loader
+from mythweaver.catalog.content_kinds import (
+    content_kind_from_curseforge_class_id,
+    default_placement_for_kind,
+)
 from mythweaver.schemas.contracts import SourceDependencyRecord, SourceFileCandidate, SourceSearchResult
 
 _ENV_API_KEY = object()
@@ -51,6 +55,30 @@ class CurseForgeSourceProvider:
     async def inspect(self, project_ref: str, *, minecraft_version: str, loader: str) -> SourceFileCandidate | None:
         return await self.resolve_file(project_ref, minecraft_version=minecraft_version, loader=loader)
 
+    async def pick_mod_and_file(
+        self,
+        project_ref: str,
+        *,
+        minecraft_version: str,
+        loader: str,
+        require_loader_match: bool = True,
+    ) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        """Return (mod_json, file_json) for the best matching file, or None if none."""
+        if not self.is_configured():
+            return None
+        mod = self._lookup_mod(project_ref)
+        mod_id = str(mod.get("id") or project_ref)
+        files = self._get_json(f"/v1/mods/{mod_id}/files", {"gameVersion": minecraft_version}).get("data", [])
+        selected = _select_compatible_file(
+            files,
+            minecraft_version=minecraft_version,
+            loader=loader,
+            require_loader_match=require_loader_match,
+        )
+        if not selected:
+            return None
+        return mod, selected
+
     async def resolve_file(self, project_ref: str, *, minecraft_version: str, loader: str) -> SourceFileCandidate | None:
         if not self.is_configured():
             return None
@@ -58,7 +86,7 @@ class CurseForgeSourceProvider:
         mod_id = str(mod.get("id") or project_ref)
         loader_name = curseforge_loader_name(loader)
         files = self._get_json(f"/v1/mods/{mod_id}/files", {"gameVersion": minecraft_version}).get("data", [])
-        selected = _select_compatible_file(files, minecraft_version=minecraft_version, loader=loader)
+        selected = _select_compatible_file(files, minecraft_version=minecraft_version, loader=loader, require_loader_match=True)
         if not selected:
             return SourceFileCandidate(
                 source="curseforge",
@@ -98,6 +126,13 @@ class CurseForgeSourceProvider:
             for dep in selected.get("dependencies", [])
             if dep.get("modId")
         ]
+        class_id = mod.get("classId")
+        inferred_kind = content_kind_from_curseforge_class_id(int(class_id)) if class_id is not None else None
+        content_kind = inferred_kind or "mod"
+        placement = default_placement_for_kind(content_kind)
+        warnings = list(warnings)
+        if inferred_kind is None and class_id is not None:
+            warnings.append(f"CurseForge classId {class_id} has no MythWeaver content-kind mapping; defaulting to mod.")
         return SourceFileCandidate(
             source="curseforge",
             project_id=mod_id,
@@ -129,6 +164,8 @@ class CurseForgeSourceProvider:
                 status,
             ),
             warnings=warnings,
+            content_kind=content_kind,
+            content_placement=placement,
         )
 
     def _lookup_mod(self, project_ref: str) -> dict[str, Any]:
@@ -168,21 +205,24 @@ def _select_compatible_file(
     *,
     minecraft_version: str,
     loader: str,
+    require_loader_match: bool = True,
 ) -> dict[str, Any] | None:
     compatible = [
         item
         for item in files
-        if _file_matches_target(item, minecraft_version=minecraft_version, loader=loader)
+        if _file_matches_target(item, minecraft_version=minecraft_version, loader=loader, require_loader_match=require_loader_match)
     ]
     if not compatible:
         return None
     return sorted(compatible, key=_file_rank, reverse=True)[0]
 
 
-def _file_matches_target(item: dict[str, Any], *, minecraft_version: str, loader: str) -> bool:
+def _file_matches_target(item: dict[str, Any], *, minecraft_version: str, loader: str, require_loader_match: bool = True) -> bool:
     game_versions = [str(value) for value in item.get("gameVersions", [])]
     if minecraft_version != "auto" and minecraft_version not in game_versions:
         return False
+    if not require_loader_match:
+        return True
     return _file_loader_matches(item, loader)
 
 

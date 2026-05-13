@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from mythweaver.catalog.selection_normalize import normalized_selection_rows, selection_row_count
 from mythweaver.schemas.contracts import RejectedMod, SelectedModList, SourceDependencyRecord, SourceFileCandidate, SourceResolveReport
 from mythweaver.sources.base import SourceProvider
 from mythweaver.sources.curseforge import CurseForgeSourceProvider
@@ -18,6 +19,9 @@ def provider_for_source(source: str, *, modrinth: Any = None, curseforge_api_key
     if normalized in {"auto", "modrinth"}:
         return cast(SourceProvider, ModrinthSourceProvider(modrinth))
     if normalized == "curseforge":
+        # Default ctor reads CURSEFORGE_API_KEY from the environment; passing api_key=None disables that.
+        if curseforge_api_key is None:
+            return cast(SourceProvider, CurseForgeSourceProvider())
         return cast(SourceProvider, CurseForgeSourceProvider(api_key=curseforge_api_key))
     if normalized == "planetminecraft":
         return cast(SourceProvider, PlanetMinecraftSourceProvider())
@@ -28,6 +32,13 @@ def provider_for_source(source: str, *, modrinth: Any = None, curseforge_api_key
     if normalized == "github":
         return cast(SourceProvider, GitHubReleaseSourceProvider())
     raise ValueError(f"unknown source: {source}")
+
+
+def _dependency_queue_entries(candidate: SourceFileCandidate) -> list[tuple[SourceDependencyRecord, str]]:
+    if getattr(candidate, "content_kind", "mod") != "mod":
+        return []
+    base = candidate.project_id or candidate.slug or candidate.name
+    return [(dep, base) for dep in candidate.dependency_records]
 
 
 async def resolve_sources_for_selected_mods(
@@ -55,10 +66,10 @@ async def resolve_sources_for_selected_mods(
     resolved_keys: set[tuple[str, str]] = set()
     queued_dependencies: list[tuple[SourceDependencyRecord, str]] = []
 
-    for entry in selected.mods:
-        requested_source = entry.source if entry.source != "auto" else "auto"
+    for row in normalized_selection_rows(selected):
+        requested_source = row.source if row.source != "auto" else "auto"
         candidate = await _resolve_candidate(
-            entry.source_ref or entry.identifier(),
+            row.ref,
             requested_source=requested_source,
             source_order=source_order,
             minecraft_version=minecraft_version,
@@ -74,24 +85,30 @@ async def resolve_sources_for_selected_mods(
             blocked.append(
                 SourceFileCandidate(
                     source="unknown",
-                    slug=entry.slug,
-                    project_id=entry.modrinth_id,
-                    name=entry.identifier(),
+                    slug=row.ref,
+                    project_id=None,
+                    name=row.ref,
                     acquisition_status="unsupported",
                     warnings=["No source provider could resolve this selected mod."],
                 )
             )
             continue
+        if target_export == "curseforge_manifest" and getattr(candidate, "content_kind", "mod") != "mod":
+            warnings.append(
+                f"{candidate.name} is not a mod; CurseForge manifest export lists mods only — file requires manual handling."
+            )
+            manual_required.append(candidate)
+            continue
         if _is_manifest_candidate(candidate, target_export):
             if _candidate_key(candidate) not in resolved_keys:
                 manifest_files.append(candidate)
                 resolved_keys.add(_candidate_key(candidate))
-                queued_dependencies.extend((dep, candidate.project_id or candidate.slug or candidate.name) for dep in candidate.dependency_records)
+                queued_dependencies.extend(_dependency_queue_entries(candidate))
         elif candidate.acquisition_status == "verified_auto":
             if _candidate_key(candidate) not in resolved_keys:
                 selected_files.append(candidate)
                 resolved_keys.add(_candidate_key(candidate))
-                queued_dependencies.extend((dep, candidate.project_id or candidate.slug or candidate.name) for dep in candidate.dependency_records)
+                queued_dependencies.extend(_dependency_queue_entries(candidate))
         elif candidate.acquisition_status == "verified_manual_required" and allow_manual_sources:
             manual_required.append(candidate)
         elif candidate.acquisition_status in {"verified_manual_required", "metadata_incomplete"}:
@@ -165,18 +182,25 @@ async def resolve_sources_for_selected_mods(
                 )
             )
             continue
+        if target_export == "curseforge_manifest" and getattr(candidate, "content_kind", "mod") != "mod":
+            warnings.append(
+                f"{candidate.name} is not a mod; CurseForge manifest export lists mods only — dependency requires manual handling."
+            )
+            manual_required.append(candidate)
+            manually_required_dependencies.append(candidate)
+            continue
         if _is_manifest_candidate(candidate, target_export):
             key = _candidate_key(candidate)
             if key not in resolved_keys:
                 manifest_files.append(candidate)
                 resolved_keys.add(key)
-                queued_dependencies.extend((dep, candidate.project_id or candidate.slug or candidate.name) for dep in candidate.dependency_records)
+                queued_dependencies.extend(_dependency_queue_entries(candidate))
         elif candidate.acquisition_status == "verified_auto":
             key = _candidate_key(candidate)
             if key not in resolved_keys:
                 selected_files.append(candidate)
                 resolved_keys.add(key)
-                queued_dependencies.extend((dep, candidate.project_id or candidate.slug or candidate.name) for dep in candidate.dependency_records)
+                queued_dependencies.extend(_dependency_queue_entries(candidate))
         elif candidate.acquisition_status in {"verified_manual_required", "metadata_incomplete"}:
             manual_required.append(candidate)
             manually_required_dependencies.append(candidate)
@@ -191,7 +215,8 @@ async def resolve_sources_for_selected_mods(
             )
 
     installable_files = selected_files + manifest_files
-    transitive_dependency_count = max(0, len(installable_files) - len(selected.mods))
+    row_count = selection_row_count(selected)
+    transitive_dependency_count = max(0, len(installable_files) - row_count)
     source_breakdown: dict[str, int] = {}
     for candidate in installable_files:
         source_breakdown[candidate.source] = source_breakdown.get(candidate.source, 0) + 1
@@ -215,7 +240,7 @@ async def resolve_sources_for_selected_mods(
         manual_required=manual_required,
         blocked=blocked,
         warnings=warnings,
-        required_count=len(selected.mods),
+        required_count=row_count,
         missing_count=len(unresolved_required_dependencies),
         unsupported_count=len(blocked),
         manual_required_count=len(manual_required) + len(manually_required_dependencies),

@@ -28,14 +28,22 @@ JSON.
 ## Outputs
 
 Autopilot writes under the configured `--output-root`, or next to the selected list in an
-`autopilot/` directory by default.
+`autopilot/` directory by default. Every run gets a durable id and lives under
+`<output-root>/runs/<run-id>/`.
 
-- Runtime cache: `<output-root>/runtime-cache/`
-- Runtime attempts: `<output-root>/runtime/<pack-name>-<run-id>/`
-- Built local instances: `<output-root>/attempt-<n>/instances/`
-- Final reports: `<output-root>/autopilot_report.json` and `<output-root>/autopilot_report.md`
-- Runtime evidence: `runtime_launch_report.json`, `runtime_evidence.txt`, `marker_summary.json`,
-  and `crash_analysis.json` when fatal evidence exists.
+- Run request: `<output-root>/runs/<run-id>/request.json`
+- Final reports: `<output-root>/runs/<run-id>/autopilot_report.json` and
+  `<output-root>/runs/<run-id>/autopilot_report.md`
+- Timeline: `<output-root>/runs/<run-id>/timeline.jsonl`
+- Runtime cache: `<output-root>/runs/<run-id>/runtime-cache/`
+- Built runtime input: `<output-root>/runs/<run-id>/attempts/attempt-001/instances/`
+- Runtime evidence: `<output-root>/runs/<run-id>/attempts/attempt-001/`, including
+  `runtime_launch_report.json`, `runtime_evidence.txt`, `marker_summary.json`, and
+  `crash_analysis.json` when fatal evidence exists.
+
+The JSON report includes typed `blockers` for local agents. The timeline JSONL stream includes
+bounded progress events such as `source_resolution_completed`, `runtime_validation_completed`,
+`diagnosis_created`, `repair_applied`, and `run_completed`.
 
 `runtime_evidence.txt` is bounded. Full launcher logs may be larger, but MythWeaver keeps report JSON
 compact by storing evidence paths and snippets.

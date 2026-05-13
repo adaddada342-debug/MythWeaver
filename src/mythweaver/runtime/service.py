@@ -28,12 +28,19 @@ def run_runtime_validation(
 ) -> RuntimeLaunchReport:
     loader = normalize_loader(request.loader)
     cache_root = Path(request.output_root or Path.cwd() / ".test-output") / "runtime-cache"
+    evidence_dir = Path(request.evidence_output_dir) if request.evidence_output_dir else None
     if loader != "fabric":
         loader_result = install_loader_runtime(loader, request.minecraft_version, cache_root / "loaders")
-        return _report(request, status="failed", stage="install_loader", java_path=request.java_path, issues=loader_result.issues)
+        report = _report(request, status="failed", stage="install_loader", java_path=request.java_path, issues=loader_result.issues)
+        if evidence_dir is not None:
+            _write_runtime_artifacts(report, evidence_dir, "")
+        return report
     java = choose_java(request.minecraft_version, request.java_path, major_version_probe=java_major_version_probe)
     if java.issue is not None:
-        return _report(request, status="failed", stage="prepare", java_path=None, issues=[java.issue])
+        report = _report(request, status="failed", stage="prepare", java_path=None, issues=[java.issue])
+        if evidence_dir is not None:
+            _write_runtime_artifacts(report, evidence_dir, "")
+        return report
     try:
         minecraft = prepare_minecraft_client(request.minecraft_version, cache_root / "minecraft", fetch_json=fetch_json, fetch_bytes=fetch_bytes)
     except Exception as exc:
@@ -44,7 +51,10 @@ def run_runtime_validation(
             message=f"Failed to prepare Minecraft client metadata/assets: {exc}",
             evidence=[type(exc).__name__, str(exc)],
         )
-        return _report(request, status="failed", stage="download_minecraft", java_path=java.java_path, issues=[issue])
+        report = _report(request, status="failed", stage="download_minecraft", java_path=java.java_path, issues=[issue])
+        if evidence_dir is not None:
+            _write_runtime_artifacts(report, evidence_dir, "")
+        return report
     loader_result = install_loader_runtime(
         loader,
         request.minecraft_version,
@@ -54,7 +64,10 @@ def run_runtime_validation(
         fetch_bytes=fetch_bytes,
     )
     if loader_result.issues:
-        return _report(request, status="failed", stage="install_loader", java_path=java.java_path, issues=loader_result.issues)
+        report = _report(request, status="failed", stage="install_loader", java_path=java.java_path, issues=loader_result.issues)
+        if evidence_dir is not None:
+            _write_runtime_artifacts(report, evidence_dir, "")
+        return report
     try:
         instance = create_runtime_instance(request.model_copy(update={"loader": loader}), run_id=uuid.uuid4().hex[:12])
     except Exception as exc:
@@ -65,7 +78,10 @@ def run_runtime_validation(
             message=f"Failed to create isolated runtime instance: {exc}",
             evidence=[type(exc).__name__, str(exc)],
         )
-        return _report(request, status="failed", stage="prepare", java_path=java.java_path, issues=[issue])
+        report = _report(request, status="failed", stage="prepare", java_path=java.java_path, issues=[issue])
+        if evidence_dir is not None:
+            _write_runtime_artifacts(report, evidence_dir, "")
+        return report
     smoke_test_mod_used = False
     if request.inject_smoke_test:
         if request.smoke_test_helper_path:
@@ -92,7 +108,7 @@ def run_runtime_validation(
                 warnings=loader_result.warnings,
                 diagnoses=diagnoses_from_issues([issue]),
             )
-            _write_runtime_artifacts(report, Path(instance.root), "")
+            _write_runtime_artifacts(report, evidence_dir or Path(instance.root), "")
             return report
         if helper is not None:
             injection = inject_smoke_test_mod(Path(instance.root), helper_mod_path=helper)
@@ -126,7 +142,7 @@ def run_runtime_validation(
                     warnings=loader_result.warnings,
                     diagnoses=diagnoses_from_issues([issue]),
                 )
-                _write_runtime_artifacts(report, Path(instance.root), "")
+                _write_runtime_artifacts(report, evidence_dir or Path(instance.root), "")
                 return report
     command = build_launch_command(
         java_path=java.java_path or "java",
@@ -145,7 +161,7 @@ def run_runtime_validation(
         require_smoke_test_proof=request.require_smoke_test_proof,
         minimum_stability_seconds=request.minimum_stability_seconds,
         smoke_test_mod_used=smoke_test_mod_used,
-        evidence_dir=Path(instance.root),
+        evidence_dir=evidence_dir or Path(instance.root),
         process_factory=process_factory,
     )
     issues = monitor.issues
@@ -174,7 +190,7 @@ def run_runtime_validation(
         proof=monitor.proof,
         diagnoses=diagnoses,
     )
-    _write_runtime_artifacts(report, Path(instance.root), monitor.output_text)
+    _write_runtime_artifacts(report, evidence_dir or Path(instance.root), monitor.output_text)
     return report
 
 
@@ -231,8 +247,7 @@ def _smoke_helper_missing_issue(request: RuntimeLaunchRequest) -> RuntimeIssue:
 def _write_runtime_artifacts(report: RuntimeLaunchReport, output_dir: Path, evidence_text: str) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "runtime_launch_report.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
-    if evidence_text:
-        (output_dir / "runtime_evidence.txt").write_text(evidence_text[-200_000:], encoding="utf-8")
+    (output_dir / "runtime_evidence.txt").write_text(evidence_text[-200_000:], encoding="utf-8")
     if report.proof is not None:
         (output_dir / "marker_summary.json").write_text(report.proof.model_dump_json(indent=2), encoding="utf-8")
     if any(issue.severity == "fatal" for issue in report.issues):

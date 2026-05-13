@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from mythweaver.api.app import create_app
-from mythweaver.autopilot.contracts import AutopilotRequest
+from mythweaver.autopilot.contracts import AutopilotBlocker, AutopilotReport, AutopilotRequest
 from mythweaver.autopilot.loop import run_autopilot
 from mythweaver.builders.paths import safe_slug
 from mythweaver.core.settings import get_settings
@@ -36,6 +36,59 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, list):
         return [_jsonable(item) for item in value]
     return value
+
+
+def exit_code_for_autopilot_report(report: AutopilotReport) -> int:
+    blocker_kinds = {blocker.kind for blocker in report.blockers}
+    if "invalid_request" in blocker_kinds:
+        return 3
+    if blocker_kinds & {"environment_missing_java", "java_runtime_missing", "runtime_setup_failed", "minecraft_client_prepare_failed"}:
+        return 4
+    if report.status == "verified_playable":
+        return 0
+    if report.status == "blocked":
+        return 1
+    if report.status in {"max_attempts_reached", "failed"}:
+        return 2
+    return 5
+
+
+def _print_autopilot_human(report: AutopilotReport) -> None:
+    print(f"MythWeaver Autopilot: {report.status.replace('_', ' ').upper()}")
+    print(f"Run id: {report.run_id or 'n/a'}")
+    if report.run_dir:
+        print(f"Run dir: {report.run_dir}")
+    print()
+    print("Final target:")
+    print(f"- Minecraft {report.final_minecraft_version or 'n/a'}")
+    print(f"- Loader {report.final_loader or 'n/a'} {report.final_loader_version or ''}".rstrip())
+    if report.final_proof is not None:
+        print(f"- Proof {report.final_proof.proof_level}")
+        print(f"- Smoke-test helper used {report.final_proof.smoke_test_mod_used}")
+        print(f"- Stability seconds {report.final_proof.stability_seconds_proven}")
+        print(f"- Evidence {report.final_proof.evidence_path or 'n/a'}")
+    print()
+    print("Attempts:")
+    for attempt in report.attempts:
+        issue_text = ", ".join(issue.kind for issue in attempt.issues) or "none"
+        print(f"{attempt.attempt_number}. {attempt.runtime_status}: {issue_text}")
+        for diagnosis in attempt.diagnoses:
+            print(f"   Diagnosis: {diagnosis.kind} ({diagnosis.confidence}) - {diagnosis.summary}")
+        for applied in attempt.actions_applied:
+            print(f"   Applied: {applied.status} {applied.action.action} {applied.action.query or ''}".rstrip())
+        for blocker in attempt.blockers:
+            print(f"   Blocker: {blocker.kind} ({blocker.severity}) - {blocker.message}")
+    if report.blockers:
+        print()
+        print("Blockers:")
+        for blocker in report.blockers:
+            print(f"- {blocker.kind} ({blocker.severity}): {blocker.message}")
+            if blocker.suggested_next_step:
+                print(f"  Next: {blocker.suggested_next_step}")
+    print()
+    print(f"Final instance: {report.final_instance_path or 'n/a'}")
+    print(f"Timeline: {report.timeline_path or 'n/a'}")
+    print(f"Report: {report.report_paths.get('json', 'n/a')}")
 
 
 def _add_prism_config_args(parser: argparse.ArgumentParser) -> None:
@@ -244,6 +297,8 @@ def _fallback_main(argv: list[str] | None = None) -> int:
     autopilot.add_argument("--memory-mb", type=int, default=4096)
     autopilot.add_argument("--timeout-seconds", type=int, default=180)
     autopilot.add_argument("--output-root")
+    autopilot.add_argument("--run-id")
+    autopilot.add_argument("--resume-run-id")
     autopilot.add_argument("--java-path")
     autopilot.add_argument("--inject-smoke-test", action=argparse.BooleanOptionalAction, default=True)
     autopilot.add_argument("--smoke-test-helper-path")
@@ -608,61 +663,66 @@ def _fallback_main(argv: list[str] | None = None) -> int:
             )
         return 0
     if args.command == "autopilot":
-        autopilot_report = asyncio.run(
-            run_autopilot(
-                AutopilotRequest(
-                    selected_mods_path=args.selected_mods,
-                    sources=_split_csv(args.sources),
-                    target_export=args.target_export,
-                    minecraft_version=args.minecraft_version,
-                    loader=args.loader,
-                    loader_version=args.loader_version,
-                    candidate_versions=_split_csv(args.candidate_versions),
-                    candidate_loaders=_split_csv(args.candidate_loaders),
-                    max_attempts=args.max_attempts,
-                    memory_mb=args.memory_mb,
-                    timeout_seconds=args.timeout_seconds,
-                    output_root=args.output_root,
-                    java_path=args.java_path,
-                    allow_manual_sources=args.allow_manual_sources,
-                    allow_target_switch=args.allow_target_switch,
-                    allow_loader_switch=args.allow_loader_switch,
-                    allow_minecraft_version_switch=args.allow_minecraft_version_switch,
-                    allow_remove_content_mods=args.allow_remove_content_mods,
-                    keep_failed_instances=args.keep_failed_instances,
-                    inject_smoke_test=args.inject_smoke_test,
-                    smoke_test_helper_path=args.smoke_test_helper_path,
-                    require_smoke_test_proof=args.require_smoke_test_proof,
-                    minimum_stability_seconds=args.minimum_stability_seconds,
+        try:
+            autopilot_report = asyncio.run(
+                run_autopilot(
+                    AutopilotRequest(
+                        selected_mods_path=args.selected_mods,
+                        sources=_split_csv(args.sources),
+                        run_id=args.run_id,
+                        resume_run_id=args.resume_run_id,
+                        target_export=args.target_export,
+                        minecraft_version=args.minecraft_version,
+                        loader=args.loader,
+                        loader_version=args.loader_version,
+                        candidate_versions=_split_csv(args.candidate_versions),
+                        candidate_loaders=_split_csv(args.candidate_loaders),
+                        max_attempts=args.max_attempts,
+                        memory_mb=args.memory_mb,
+                        timeout_seconds=args.timeout_seconds,
+                        output_root=args.output_root,
+                        java_path=args.java_path,
+                        allow_manual_sources=args.allow_manual_sources,
+                        allow_target_switch=args.allow_target_switch,
+                        allow_loader_switch=args.allow_loader_switch,
+                        allow_minecraft_version_switch=args.allow_minecraft_version_switch,
+                        allow_remove_content_mods=args.allow_remove_content_mods,
+                        keep_failed_instances=args.keep_failed_instances,
+                        inject_smoke_test=args.inject_smoke_test,
+                        smoke_test_helper_path=args.smoke_test_helper_path,
+                        require_smoke_test_proof=args.require_smoke_test_proof,
+                        minimum_stability_seconds=args.minimum_stability_seconds,
+                    )
                 )
             )
-        )
+        except (OSError, ValueError) as exc:
+            autopilot_report = AutopilotReport(
+                status="failed",
+                final_minecraft_version=args.minecraft_version,
+                final_loader=args.loader,
+                final_loader_version=args.loader_version,
+                attempts=[],
+                final_instance_path=None,
+                final_export_path=None,
+                summary=f"Invalid Autopilot request: {exc}",
+                warnings=[],
+                blockers=[
+                    AutopilotBlocker(
+                        kind="invalid_request",
+                        message=str(exc),
+                        severity="fatal",
+                        agent_can_retry=True,
+                        user_action_required=True,
+                        suggested_next_step="Fix the selected_mods.json path or request values and run Autopilot again.",
+                    )
+                ],
+            )
+        code = exit_code_for_autopilot_report(autopilot_report)
         if args.json:
             _print_json(autopilot_report)
         else:
-            print(f"MythWeaver Autopilot: {autopilot_report.status.replace('_', ' ').upper()}")
-            print()
-            print("Final target:")
-            print(f"- Minecraft {autopilot_report.final_minecraft_version or 'n/a'}")
-            print(f"- Loader {autopilot_report.final_loader or 'n/a'} {autopilot_report.final_loader_version or ''}".rstrip())
-            if autopilot_report.final_proof is not None:
-                print(f"- Proof {autopilot_report.final_proof.proof_level}")
-                print(f"- Smoke-test helper used {autopilot_report.final_proof.smoke_test_mod_used}")
-                print(f"- Stability seconds {autopilot_report.final_proof.stability_seconds_proven}")
-                print(f"- Evidence {autopilot_report.final_proof.evidence_path or 'n/a'}")
-            print()
-            print("Attempts:")
-            for attempt in autopilot_report.attempts:
-                issue_text = ", ".join(issue.kind for issue in attempt.issues) or "none"
-                print(f"{attempt.attempt_number}. {attempt.runtime_status}: {issue_text}")
-                for diagnosis in attempt.diagnoses:
-                    print(f"   Diagnosis: {diagnosis.kind} ({diagnosis.confidence}) - {diagnosis.summary}")
-                for applied in attempt.actions_applied:
-                    print(f"   Applied: {applied.status} {applied.action.action} {applied.action.query or ''}".rstrip())
-            print()
-            print(f"Final instance: {autopilot_report.final_instance_path or 'n/a'}")
-            print(f"Report: {autopilot_report.report_paths.get('json', 'n/a')}")
-        return 0
+            _print_autopilot_human(autopilot_report)
+        return code
     if args.command == "validate-pack":
         facade = AgentToolFacade(_settings_for_args(args, force_validation=True))
         _print_json(

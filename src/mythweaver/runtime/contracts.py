@@ -76,6 +76,7 @@ class RuntimeLaunchRequest(AgentSafeModel):
     mod_files: list[str]
     config_dir: str | None = None
     output_root: str | None = None
+    evidence_output_dir: str | None = None
     memory_mb: int = 4096
     timeout_seconds: int = 180
     java_path: str | None = None

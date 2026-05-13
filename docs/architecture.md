@@ -28,7 +28,8 @@ Core modules do the real work:
 - `builders`: downloads, hash checks, `.mrpack`, Prism instance folders.
 - `runtime`: private Java/Mojang/Fabric runtime preparation, isolated validation instances,
   launch command construction, monitoring, deterministic classifiers, and runtime repair actions.
-- `autopilot`: autonomous target/build/runtime/repair retry loop with memory and stop limits.
+- `autopilot`: autonomous target/build/runtime/repair retry loop with memory, stop limits, durable
+  run identity, timeline events, typed blockers, and agent-readable reports.
 - `configs`: typed generated-content recipes.
 - `validation`: Prism launch adapter and crash analysis.
 - `db`: SQLite JSON cache.
@@ -50,6 +51,12 @@ or client-start log lines are stored as weak proof levels for diagnostics, not a
 Evidence artifacts are written under each isolated runtime attempt, including
 `runtime_launch_report.json`, `runtime_evidence.txt`, and `marker_summary.json`.
 
+Autopilot runs are durable backend operations. Each run writes to
+`<output_root>/runs/<run_id>/` with `request.json`, `autopilot_report.json`,
+`autopilot_report.md`, `timeline.jsonl`, working selection snapshots, target state, memory, and
+per-attempt runtime evidence. Local agents should treat `timeline.jsonl` and `AutopilotBlocker`
+objects as the stable progress/stop contract rather than parsing CLI prose.
+
 Runtime failure intelligence is centralized in `runtime/diagnosis.py`. It turns bounded log/crash
 evidence into deterministic diagnoses such as missing dependency, Fabric API missing, wrong loader,
 Java incompatibility, mixin failure, duplicate mod, config parse error, access widener failure,
@@ -67,6 +74,10 @@ CurseForge, or Microsoft network/auth access.
 Ollama, LM Studio, llama.cpp servers, and compatible hosted APIs.
 
 The adapter is off by default. The system works without it.
+
+## Content kinds (mods, datapacks, packs, shaders)
+
+Selected lists carry a **content kind** (`mod`, `datapack`, `resourcepack`, `shaderpack`) and optional **placement** (e.g. datapacks use `manual_world_creation` in v1). Resolution and export branch on kind: mods follow normal download/hash validation and `.mrpack` / Prism mod paths; manual datapacks are documented and warned in reports but not bundled into `mods/` or `.mrpack` `files[]`. A narrow Modrinth case keeps `project_type` as `mod` while reclassifying datapack-only file versions—see **Content kinds** in `AGENTS.md`.
 
 ## Build Outputs
 
